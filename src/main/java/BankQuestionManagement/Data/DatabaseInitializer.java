@@ -1,4 +1,4 @@
-package BankQuestionManagement;
+package BankQuestionManagement.Data;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -21,8 +21,8 @@ public class DatabaseInitializer {
                     BEGIN
                         CREATE TABLE Exams (
                             ExamID INT PRIMARY KEY IDENTITY,
-                            ExamName VARCHAR(255) NOT NULL,
-                            Description VARCHAR(MAX),
+                            ExamName NVARCHAR(255) NOT NULL,
+                            Description NVARCHAR(MAX),
                             CreatedDate DATETIME DEFAULT GETDATE(),
                             ModifiedDate DATETIME DEFAULT GETDATE()
                         );
@@ -97,7 +97,7 @@ public class DatabaseInitializer {
                             BEGIN
                                 CREATE TABLE GeneratedExams (
                                     GeneratedExamID INT PRIMARY KEY IDENTITY,
-                                    ExamName VARCHAR(255) NOT NULL,
+                                    ExamName NVARCHAR(255) NOT NULL,
                                     ExportPath NVARCHAR(500) NOT NULL,
                                     CreatedDate DATETIME DEFAULT GETDATE()
                                 );
@@ -120,6 +120,24 @@ public class DatabaseInitializer {
                                 );
                             END
                         """
+            );
+
+            //Tạo bảng ImageScans
+            statement.executeUpdate(
+            """
+                    IF NOT EXISTS (
+                       SELECT * FROM sys.objects
+                       WHERE object_id = OBJECT_ID(N'ImageScans') AND type = N'U'
+                    )
+                    BEGIN
+                        CREATE TABLE ImageScans (
+                            ScanID INT PRIMARY KEY IDENTITY,
+                            QuestionID INT FOREIGN KEY REFERENCES Questions(QuestionID),
+                            ScannedText NVARCHAR(MAX),
+                            ScanTimestamp DATETIME DEFAULT GETDATE()
+                        );
+                    END 
+                """
             );
 
             System.out.println("Tao bang thanh cong");

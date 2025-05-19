@@ -1,6 +1,7 @@
-package BankQuestionManagement;
+package BankQuestionManagement.TestDAO;
 
-import BankQuestionManagement.*;
+import BankQuestionManagement.DAO.AISuggestionDAO;
+import BankQuestionManagement.Model.AISuggestion;
 
 import java.util.List;
 

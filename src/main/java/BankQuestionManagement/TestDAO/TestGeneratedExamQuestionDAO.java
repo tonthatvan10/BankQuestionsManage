@@ -1,6 +1,7 @@
-package BankQuestionManagement;
+package BankQuestionManagement.TestDAO;
 
-import BankQuestionManagement.*;
+import BankQuestionManagement.DAO.GeneratedExamQuestionDAO;
+import BankQuestionManagement.Model.GeneratedExamQuestion;
 
 import java.util.List;
 

@@ -1,4 +1,4 @@
-package BankQuestionManagement;
+package BankQuestionManagement.Model;
 
 import java.sql.Timestamp;
 
@@ -59,4 +59,10 @@ public class Exam {
     public void setModifiedDate(Timestamp modifiedDate) {
         this.modifiedDate = modifiedDate;
     }
+
+    @Override
+    public String toString() {
+        return examName;
+    }
 }
+

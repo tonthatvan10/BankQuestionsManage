@@ -1,4 +1,7 @@
-package BankQuestionManagement;
+package BankQuestionManagement.DAO;
+
+import BankQuestionManagement.Model.AISuggestion;
+import BankQuestionManagement.Data.DatabaseConnector;
 
 import java.sql.*;
 import java.util.ArrayList;

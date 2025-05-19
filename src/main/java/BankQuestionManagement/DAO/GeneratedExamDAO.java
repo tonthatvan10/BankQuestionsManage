@@ -1,4 +1,7 @@
-package BankQuestionManagement;
+package BankQuestionManagement.DAO;
+
+import BankQuestionManagement.Data.DatabaseConnector;
+import BankQuestionManagement.Model.GeneratedExam;
 
 import java.sql.*;
 import java.util.ArrayList;

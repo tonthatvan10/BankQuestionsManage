@@ -1,4 +1,4 @@
-package BankQuestionManagement;
+package BankQuestionManagement.Model;
 
 import java.sql.Timestamp;
 

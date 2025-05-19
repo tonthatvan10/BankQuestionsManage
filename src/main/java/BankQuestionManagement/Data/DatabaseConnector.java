@@ -1,4 +1,4 @@
-package BankQuestionManagement;
+package BankQuestionManagement.Data;
 
 import java.sql.Connection;
 import java.sql.DriverManager;

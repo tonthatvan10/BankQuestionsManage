@@ -1,4 +1,4 @@
-package BankQuestionManagement;
+package BankQuestionManagement.Model;
 
 public class AISuggestion {
     private int suggestionID;
