@@ -78,4 +78,29 @@ public class ExamDAO {
             e.printStackTrace();
         }
     }
+
+    public Exam getExamByID(int examID) {
+        String sql = "SELECT ExamID, ExamName, Description, CreatedDate, ModifiedDate "
+                + "FROM Exams WHERE ExamID = ?";
+        try (
+                Connection connection = DatabaseConnector.getConnection();
+                PreparedStatement pst = connection.prepareStatement(sql)
+        ) {
+            pst.setInt(1, examID);
+            try (ResultSet rs = pst.executeQuery()) {
+                if (rs.next()) {
+                    Exam exam = new Exam();
+                    exam.setExamID(rs.getInt("ExamID"));
+                    exam.setExamName(rs.getString("ExamName"));
+                    exam.setDescription(rs.getString("Description"));
+                    exam.setCreatedDate(rs.getTimestamp("CreatedDate"));
+                    exam.setModifiedDate(rs.getTimestamp("ModifiedDate"));
+                    return exam;
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
 }
