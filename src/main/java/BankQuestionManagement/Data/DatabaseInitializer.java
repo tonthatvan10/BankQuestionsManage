@@ -23,6 +23,7 @@ public class DatabaseInitializer {
                             ExamID INT PRIMARY KEY IDENTITY,
                             ExamName NVARCHAR(255) NOT NULL,
                             Description NVARCHAR(MAX),
+                            ImagePath NVARCHAR(500),
                             CreatedDate DATETIME DEFAULT GETDATE(),
                             ModifiedDate DATETIME DEFAULT GETDATE()
                         );
@@ -42,7 +43,6 @@ public class DatabaseInitializer {
                                 QuestionID INT PRIMARY KEY IDENTITY,
                                 ExamID INT FOREIGN KEY REFERENCES Exams(ExamID) ON DELETE CASCADE,
                                 Content NVARCHAR(MAX) NOT NULL,
-                                ImagePath NVARCHAR(500),
                                 AudioPath NVARCHAR(500),
                                 CreatedDate DATETIME DEFAULT GETDATE()
                             );
@@ -120,24 +120,6 @@ public class DatabaseInitializer {
                                 );
                             END
                         """
-            );
-
-            //Tạo bảng ImageScans
-            statement.executeUpdate(
-            """
-                    IF NOT EXISTS (
-                       SELECT * FROM sys.objects
-                       WHERE object_id = OBJECT_ID(N'ImageScans') AND type = N'U'
-                    )
-                    BEGIN
-                        CREATE TABLE ImageScans (
-                            ScanID INT PRIMARY KEY IDENTITY,
-                            QuestionID INT FOREIGN KEY REFERENCES Questions(QuestionID),
-                            ScannedText NVARCHAR(MAX),
-                            ScanTimestamp DATETIME DEFAULT GETDATE()
-                        );
-                    END 
-                """
             );
 
             System.out.println("Tao bang thanh cong");

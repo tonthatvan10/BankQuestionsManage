@@ -23,31 +23,30 @@ public class TestQuestionDAO {
         // 2. Thêm mới Question
         Question q1 = new Question(exampleExamID,
                 "これはテスト問題です。What is the capital of Vietnam?",
-                "C:/images/q1.png",
-                "C:/audio/q1.mp3");
+                null);
         int newQuestionId = dao.addQuestion(q1);
         System.out.println("Tạo question mới, ID = " + newQuestionId);
 
-        // 3. Lấy Question vừa tạo
-        Question fetched = dao.getQuestionByID(newQuestionId);
-        System.out.println("Question fetched: " + fetched);
-
-        // 4. Cập nhật Question
-        fetched.setContent("Cập nhật nội dung: ベトナムの首都は何ですか？");
-        fetched.setImagePath("C:/images/q1_updated.png");
-        boolean updated = dao.updateQuestion(fetched);
-        System.out.println("Cập nhật thành công? " + updated);
-
-        // 5. Lấy lại để kiểm tra
-        Question check2 = dao.getQuestionByID(newQuestionId);
-        System.out.println("Sau khi update: " + check2);
-
-        // 6. Lấy tất cả Question (in ra console)
-        List<Question> all = dao.getAllQuestions();
-        System.out.println("Danh sách tất cả questions:");
-        for (Question q : all) {
-            System.out.println("  • " + q);
-        }
+//        // 3. Lấy Question vừa tạo
+//        Question fetched = dao.getQuestionByID(newQuestionId);
+//        System.out.println("Question fetched: " + fetched);
+//
+//        // 4. Cập nhật Question
+//        fetched.setContent("Cập nhật nội dung: ベトナムの首都は何ですか？");
+//        fetched.setImagePath("C:/images/q1_updated.png");
+//        boolean updated = dao.updateQuestion(fetched);
+//        System.out.println("Cập nhật thành công? " + updated);
+//
+//        // 5. Lấy lại để kiểm tra
+//        Question check2 = dao.getQuestionByID(newQuestionId);
+//        System.out.println("Sau khi update: " + check2);
+//
+//        // 6. Lấy tất cả Question (in ra console)
+//        List<Question> all = dao.getAllQuestions();
+//        System.out.println("Danh sách tất cả questions:");
+//        for (Question q : all) {
+//            System.out.println("  • " + q);
+//        }
 
         // 7. Xóa question
 //        boolean deleted = dao.deleteQuestion(newQuestionId);

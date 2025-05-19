@@ -11,10 +11,12 @@ public class QuestionDAO {
 
     /**
      * Thêm mới một Question.
+     * Bảng chỉ có (ExamID, Content), AudioPath tự động null hoặc có thể set.
      * Trả về QuestionID vừa được tạo (sử dụng getGeneratedKeys).
      */
     public int addQuestion(Question question) {
-        String sql = "INSERT INTO Questions (ExamID, Content, ImagePath, AudioPath) VALUES (?, ?, ?, ?)";
+        // Chỉ chèn ExamID, Content. Nếu muốn set AudioPath, thêm vào VALUES và gọi setString(3,...)
+        String sql = "INSERT INTO Questions (ExamID, Content, AudioPath) VALUES (?, ?, ?)";
         String[] generatedCols = {"QuestionID"};
 
         try (
@@ -23,8 +25,7 @@ public class QuestionDAO {
         ) {
             pst.setInt(1, question.getExamID());
             pst.setString(2, question.getContent());
-            pst.setString(3, question.getImagePath());
-            pst.setString(4, question.getAudioPath());
+            pst.setString(3, question.getAudioPath()); // Nếu không có audio thì bạn có thể truyền null
 
             int affected = pst.executeUpdate();
             if (affected == 0) {
@@ -46,19 +47,19 @@ public class QuestionDAO {
     }
 
     /**
-     * Cập nhật thông tin Question (chỉ update Content, ImagePath, AudioPath)
+     * Cập nhật thông tin Question (chỉ update Content, AudioPath).
+     * SQL không còn tham chiếu đến ImagePath nữa.
      */
     public boolean updateQuestion(Question question) {
-        String sql = "UPDATE Questions SET Content = ?, ImagePath = ?, AudioPath = ? WHERE QuestionID = ?";
+        String sql = "UPDATE Questions SET Content = ?, AudioPath = ? WHERE QuestionID = ?";
 
         try (
                 Connection conn = DatabaseConnector.getConnection();
                 PreparedStatement pst = conn.prepareStatement(sql)
         ) {
             pst.setString(1, question.getContent());
-            pst.setString(2, question.getImagePath());
-            pst.setString(3, question.getAudioPath());
-            pst.setInt(4, question.getQuestionID());
+            pst.setString(2, question.getAudioPath());
+            pst.setInt(3, question.getQuestionID());
 
             int affected = pst.executeUpdate();
             return affected > 0;
@@ -69,7 +70,7 @@ public class QuestionDAO {
     }
 
     /**
-     * Xóa Question theo questionID (các Answers, AISuggestions liên quan sẽ tự động xoá do ON DELETE CASCADE)
+     * Xóa Question theo questionID (các Answers, AISuggestions liên quan tự động xóa do ON DELETE CASCADE).
      */
     public boolean deleteQuestion(int questionID) {
         String sql = "DELETE FROM Questions WHERE QuestionID = ?";
@@ -90,7 +91,7 @@ public class QuestionDAO {
      * Lấy một Question theo questionID
      */
     public Question getQuestionByID(int questionID) {
-        String sql = "SELECT QuestionID, ExamID, Content, ImagePath, AudioPath, CreatedDate FROM Questions WHERE QuestionID = ?";
+        String sql = "SELECT QuestionID, ExamID, Content, AudioPath, CreatedDate FROM Questions WHERE QuestionID = ?";
         try (
                 Connection conn = DatabaseConnector.getConnection();
                 PreparedStatement pst = conn.prepareStatement(sql)
@@ -102,7 +103,6 @@ public class QuestionDAO {
                     q.setQuestionID(rs.getInt("QuestionID"));
                     q.setExamID(rs.getInt("ExamID"));
                     q.setContent(rs.getString("Content"));
-                    q.setImagePath(rs.getString("ImagePath"));
                     q.setAudioPath(rs.getString("AudioPath"));
                     q.setCreatedDate(rs.getTimestamp("CreatedDate"));
                     return q;
@@ -121,7 +121,7 @@ public class QuestionDAO {
      */
     public List<Question> getAllQuestions() {
         List<Question> list = new ArrayList<>();
-        String sql = "SELECT QuestionID, ExamID, Content, ImagePath, AudioPath, CreatedDate FROM Questions";
+        String sql = "SELECT QuestionID, ExamID, Content, AudioPath, CreatedDate FROM Questions";
         try (
                 Connection conn = DatabaseConnector.getConnection();
                 Statement stmt = conn.createStatement();
@@ -132,7 +132,6 @@ public class QuestionDAO {
                 q.setQuestionID(rs.getInt("QuestionID"));
                 q.setExamID(rs.getInt("ExamID"));
                 q.setContent(rs.getString("Content"));
-                q.setImagePath(rs.getString("ImagePath"));
                 q.setAudioPath(rs.getString("AudioPath"));
                 q.setCreatedDate(rs.getTimestamp("CreatedDate"));
                 list.add(q);
@@ -148,7 +147,7 @@ public class QuestionDAO {
      */
     public List<Question> getQuestionsByExamID(int examID) {
         List<Question> list = new ArrayList<>();
-        String sql = "SELECT QuestionID, ExamID, Content, ImagePath, AudioPath, CreatedDate " +
+        String sql = "SELECT QuestionID, ExamID, Content, AudioPath, CreatedDate " +
                 "FROM Questions WHERE ExamID = ?";
         try (
                 Connection conn = DatabaseConnector.getConnection();
@@ -161,7 +160,6 @@ public class QuestionDAO {
                     q.setQuestionID(rs.getInt("QuestionID"));
                     q.setExamID(rs.getInt("ExamID"));
                     q.setContent(rs.getString("Content"));
-                    q.setImagePath(rs.getString("ImagePath"));
                     q.setAudioPath(rs.getString("AudioPath"));
                     q.setCreatedDate(rs.getTimestamp("CreatedDate"));
                     list.add(q);

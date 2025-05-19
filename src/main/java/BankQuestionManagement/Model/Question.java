@@ -6,7 +6,6 @@ public class Question {
     private int questionID;
     private int examID;
     private String content;    // NVARCHAR(MAX)
-    private String imagePath;  // NVARCHAR(500)
     private String audioPath;  // NVARCHAR(500)
     private Timestamp createdDate;
 
@@ -14,10 +13,9 @@ public class Question {
     }
 
     // Constructor để chèn mới (chưa có questionID, createdDate)
-    public Question(int examID, String content, String imagePath, String audioPath) {
+    public Question(int examID, String content, String audioPath) {
         this.examID = examID;
         this.content = content;
-        this.imagePath = imagePath;
         this.audioPath = audioPath;
     }
 
@@ -26,7 +24,6 @@ public class Question {
         this.questionID = questionID;
         this.examID = examID;
         this.content = content;
-        this.imagePath = imagePath;
         this.audioPath = audioPath;
         this.createdDate = createdDate;
     }
@@ -56,14 +53,6 @@ public class Question {
         this.content = content;
     }
 
-    public String getImagePath() {
-        return imagePath;
-    }
-
-    public void setImagePath(String imagePath) {
-        this.imagePath = imagePath;
-    }
-
     public String getAudioPath() {
         return audioPath;
     }
@@ -86,7 +75,6 @@ public class Question {
                 "questionID=" + questionID +
                 ", examID=" + examID +
                 ", content='" + content + '\'' +
-                ", imagePath='" + imagePath + '\'' +
                 ", audioPath='" + audioPath + '\'' +
                 ", createdDate=" + createdDate +
                 '}';

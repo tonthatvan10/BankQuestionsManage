@@ -9,90 +9,129 @@ import java.util.List;
 
 public class ExamDAO {
 
-    public void addExam(Exam exam) {
-        String sql = "INSERT INTO Exams (ExamName, Description) VALUES (?, ?)";
+    /**
+     * Thêm một Exam mới, bao gồm đường dẫn imagePath, và trả về examID sinh tự động
+     */
+    public int addExam(Exam exam) {
+        String sql = "INSERT INTO Exams (ExamName, Description, ImagePath) VALUES (?, ?, ?)";
 
         try (
                 Connection connection = DatabaseConnector.getConnection();
-                PreparedStatement statement = connection.prepareStatement(sql)
+                PreparedStatement ps = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)
         ) {
-            statement.setString(1, exam.getExamName());
-            statement.setString(2, exam.getDescription());
-            statement.executeUpdate();
+            ps.setString(1, exam.getExamName());
+            ps.setString(2, exam.getDescription());
+            ps.setString(3, exam.getImagePath());
+
+            int affected = ps.executeUpdate();
+            if (affected == 0) {
+                throw new SQLException("Tạo Exam thất bại, không có dòng nào bị ảnh hưởng.");
+            }
+
+            try (ResultSet rs = ps.getGeneratedKeys()) {
+                if (rs.next()) {
+                    int newId = rs.getInt(1);
+                    exam.setExamID(newId);
+                    return newId;
+                } else {
+                    throw new SQLException("Không lấy được ExamID sau khi chèn.");
+                }
+            }
         } catch (SQLException e) {
             e.printStackTrace();
+            return -1;
         }
     }
 
+    /**
+     * Lấy danh sách tất cả Exam, bao gồm imagePath
+     */
     public List<Exam> getAllExams() {
         List<Exam> exams = new ArrayList<>();
-        String sql = "SELECT * FROM Exams";
+        String sql = "SELECT ExamID, ExamName, Description, ImagePath, CreatedDate, ModifiedDate FROM Exams";
 
         try (
                 Connection connection = DatabaseConnector.getConnection();
-                Statement statement = connection.createStatement();
-                ResultSet resultSet = statement.executeQuery(sql)
+                Statement stmt = connection.createStatement();
+                ResultSet rs = stmt.executeQuery(sql)
         ) {
-            while (resultSet.next()) {
+            while (rs.next()) {
                 Exam exam = new Exam();
-                exam.setExamID(resultSet.getInt("ExamID"));
-                exam.setExamName(resultSet.getString("ExamName"));
-                exam.setDescription(resultSet.getString("Description"));
-                exam.setCreatedDate(resultSet.getTimestamp("CreatedDate"));
-                exam.setModifiedDate(resultSet.getTimestamp("ModifiedDate"));
+                exam.setExamID(rs.getInt("ExamID"));
+                exam.setExamName(rs.getString("ExamName"));
+                exam.setDescription(rs.getString("Description"));
+                exam.setImagePath(rs.getString("ImagePath"));
+                exam.setCreatedDate(rs.getTimestamp("CreatedDate"));
+                exam.setModifiedDate(rs.getTimestamp("ModifiedDate"));
                 exams.add(exam);
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
-
         return exams;
     }
 
-    public void updateExam(Exam exam) {
-        String sql = "UPDATE Exams SET ExamName = ?, Description = ?, ModifiedDate = GETDATE() WHERE ExamID = ?";
+    /**
+     * Cập nhật Exam (ExamName, Description, ImagePath) và ModifiedDate tự động
+     */
+    public boolean updateExam(Exam exam) {
+        String sql = "UPDATE Exams SET ExamName = ?, Description = ?, ImagePath = ?, ModifiedDate = GETDATE() WHERE ExamID = ?";
 
         try (
                 Connection connection = DatabaseConnector.getConnection();
-                PreparedStatement statement = connection.prepareStatement(sql)
+                PreparedStatement ps = connection.prepareStatement(sql)
         ) {
-            statement.setString(1, exam.getExamName());
-            statement.setString(2, exam.getDescription());
-            statement.setInt(3, exam.getExamID());
-            statement.executeUpdate();
+            ps.setString(1, exam.getExamName());
+            ps.setString(2, exam.getDescription());
+            ps.setString(3, exam.getImagePath());
+            ps.setInt(4, exam.getExamID());
+
+            int affected = ps.executeUpdate();
+            return affected > 0;
         } catch (SQLException e) {
             e.printStackTrace();
+            return false;
         }
     }
 
-    public void deleteExam(int examID) {
+    /**
+     * Xóa Exam theo examID
+     */
+    public boolean deleteExam(int examID) {
         String sql = "DELETE FROM Exams WHERE ExamID = ?";
 
         try (
                 Connection connection = DatabaseConnector.getConnection();
-                PreparedStatement statement = connection.prepareStatement(sql)
+                PreparedStatement ps = connection.prepareStatement(sql)
         ) {
-            statement.setInt(1, examID);
-            statement.executeUpdate();
+            ps.setInt(1, examID);
+            int affected = ps.executeUpdate();
+            return affected > 0;
         } catch (SQLException e) {
             e.printStackTrace();
+            return false;
         }
     }
 
-    public Exam getExamByID(int examID) {
-        String sql = "SELECT ExamID, ExamName, Description, CreatedDate, ModifiedDate "
+    /**
+     * Lấy Exam theo ID, bao gồm imagePath
+     */
+    public Exam getExamById(int examID) {
+        String sql = "SELECT ExamID, ExamName, Description, ImagePath, CreatedDate, ModifiedDate "
                 + "FROM Exams WHERE ExamID = ?";
+
         try (
                 Connection connection = DatabaseConnector.getConnection();
-                PreparedStatement pst = connection.prepareStatement(sql)
+                PreparedStatement ps = connection.prepareStatement(sql)
         ) {
-            pst.setInt(1, examID);
-            try (ResultSet rs = pst.executeQuery()) {
+            ps.setInt(1, examID);
+            try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     Exam exam = new Exam();
                     exam.setExamID(rs.getInt("ExamID"));
                     exam.setExamName(rs.getString("ExamName"));
                     exam.setDescription(rs.getString("Description"));
+                    exam.setImagePath(rs.getString("ImagePath"));
                     exam.setCreatedDate(rs.getTimestamp("CreatedDate"));
                     exam.setModifiedDate(rs.getTimestamp("ModifiedDate"));
                     return exam;

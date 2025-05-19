@@ -7,31 +7,18 @@ public class GeminiServiceTest {
         // Khởi tạo GeminiService
         GeminiService geminiService = new GeminiService();
 
-        // Đường dẫn tới tệp hình ảnh kiểm tra
-        String imagePath = "C:/Users/Ton That Van/Downloads/Japanese/part2/4.jpg"; // Thay bằng đường dẫn thực tế
-        File imageFile = new File(imagePath);
+        // ID của Exam đã tồn tại trong database
+        int existingExamId = 1;
 
         try {
-            // Kiểm tra phương thức scanImage
-            System.out.println("Kiểm tra OCR (scanImage)...");
-            if (!imageFile.exists()) {
-                System.out.println("Lỗi: Tệp hình ảnh không tồn tại tại " + imagePath);
-                return;
-            }
-            String extractedText = geminiService.scanImage(imageFile);
-            System.out.println("Văn bản trích xuất từ hình ảnh:");
-            System.out.println(extractedText);
+            System.out.println("Bắt đầu xử lý Exam với ID = " + existingExamId + "...");
 
-            // Kiểm tra phương thức suggestAnswer
-            System.out.println("\nKiểm tra QA (suggestAnswer)...");
-            String prompt = extractedText.isEmpty() ? "What is AI in a few words?" : extractedText;
-            String answer = geminiService.suggestAnswer(prompt);
-            System.out.println("Câu hỏi: " + prompt);
-            System.out.println("Gợi ý đáp án:");
-            System.out.println(answer);
+            // Gọi phương thức để quét ảnh và lưu Question, Answer, AISuggestion cho Exam đã tồn tại
+            geminiService.scanAndPopulateExistingExam(existingExamId);
 
+            System.out.println("Hoàn thành: Dữ liệu cho Exam ID = " + existingExamId + " đã được lưu vào database.");
         } catch (Exception e) {
-            System.err.println("Lỗi khi kiểm tra GeminiService: " + e.getMessage());
+            System.err.println("Lỗi khi xử lý Exam ID = " + existingExamId + ": " + e.getMessage());
             e.printStackTrace();
         }
     }

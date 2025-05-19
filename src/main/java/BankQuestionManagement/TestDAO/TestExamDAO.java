@@ -11,23 +11,24 @@ public class TestExamDAO {
 
         // Thêm đề mới
         Exam newExam = new Exam();
-        newExam.setExamName("Đề thi JLPT N3 - Tháng 7");
+        newExam.setExamName("DE_THI_JLPT_N3");
         newExam.setDescription("Đề luyện tập N3 tháng 7");
+        newExam.setImagePath("C:/Users/Ton That Van/Downloads/DE_THI_TIENG_NHAT/1 (1).jpg");
         dao.addExam(newExam);
 
-        // Hiển thị tất cả đề thi
-        List<Exam> list = dao.getAllExams();
-        for (Exam e : list) {
-            System.out.println(e.getExamID() + ": " + e.getExamName() + " - " + e.getDescription());
-        }
-
-        // Cập nhật đề
-        if (!list.isEmpty()) {
-            Exam exam = list.get(0);
-            exam.setExamName("Đề thi JLPT N3 - UPDATED");
-            exam.setDescription("Mô tả mới cho đề thi N3");
-            dao.updateExam(exam);
-        }
+//        // Hiển thị tất cả đề thi
+//        List<Exam> list = dao.getAllExams();
+//        for (Exam e : list) {
+//            System.out.println(e.getExamID() + ": " + e.getExamName() + " - " + e.getDescription());
+//        }
+//
+//        // Cập nhật đề
+//        if (!list.isEmpty()) {
+//            Exam exam = list.get(0);
+//            exam.setExamName("Đề thi JLPT N3 - UPDATED");
+//            exam.setDescription("Mô tả mới cho đề thi N3");
+//            dao.updateExam(exam);
+//        }
 
         // Xoá đề
         // dao.deleteExam(1);

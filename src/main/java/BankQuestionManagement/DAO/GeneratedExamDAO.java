@@ -43,10 +43,10 @@ public class GeneratedExamDAO {
     }
 
     /**
-     * Cập nhật GeneratedExam (nếu cần, ví dụ đổi ExamName hoặc ExportPath).
+     * Cập nhật GeneratedExam (ExamName, ExportPath).
      */
     public boolean updateGeneratedExam(GeneratedExam gen) {
-        String sql = "UPDATE GeneratedExams SET ExamName = ?, ExportPath = ? WHERE GeneratedExamID = ?";
+        String sql = "UPDATE GeneratedExams SET ExamName = ?, ExportPath = ?, CreatedDate = GETDATE() WHERE GeneratedExamID = ?";
         try (
                 Connection conn = DatabaseConnector.getConnection();
                 PreparedStatement pst = conn.prepareStatement(sql)
@@ -64,7 +64,7 @@ public class GeneratedExamDAO {
     }
 
     /**
-     * Xóa GeneratedExam theo generatedExamID (các GeneratedExamQuestions liên quan sẽ tự động xóa do ON DELETE CASCADE)
+     * Xóa GeneratedExam theo generatedExamID (GeneratedExamQuestions liên quan bị xóa do cascade).
      */
     public boolean deleteGeneratedExam(int genID) {
         String sql = "DELETE FROM GeneratedExams WHERE GeneratedExamID = ?";

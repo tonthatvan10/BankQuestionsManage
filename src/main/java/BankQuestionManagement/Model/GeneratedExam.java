@@ -1,12 +1,15 @@
 package BankQuestionManagement.Model;
 
 import java.sql.Timestamp;
+import java.util.List;
 
 public class GeneratedExam {
     private int generatedExamID;
     private String examName;      // Tên tạm của đề được sinh
     private String exportPath;    // Đường dẫn lưu file PDF/DOC
     private Timestamp createdDate;
+    private List<Question> questions;
+
 
     public GeneratedExam() {
     }
@@ -56,6 +59,14 @@ public class GeneratedExam {
 
     public void setCreatedDate(Timestamp createdDate) {
         this.createdDate = createdDate;
+    }
+
+    public List<Question> getQuestions() {
+        return questions;
+    }
+
+    public void setQuestions(List<Question> questions) {
+        this.questions = questions;
     }
 
     @Override

@@ -29,7 +29,7 @@ public class GeneratedExamQuestionDAO {
     }
 
     /**
-     * Xóa một dòng trong GeneratedExamQuestions theo cả composite key (GeneratedExamID, QuestionID)
+     * Xóa một dòng trong GeneratedExamQuestions theo composite key (GeneratedExamID, QuestionID)
      */
     public boolean deleteGeneratedExamQuestion(int generatedExamID, int questionID) {
         String sql = "DELETE FROM GeneratedExamQuestions WHERE GeneratedExamID = ? AND QuestionID = ?";
@@ -48,7 +48,7 @@ public class GeneratedExamQuestionDAO {
     }
 
     /**
-     * Lấy danh sách các GeneratedExamQuestion theo generatedExamID
+     * Lấy danh sách GeneratedExamQuestion theo generatedExamID
      */
     public List<GeneratedExamQuestion> getByGeneratedExamID(int generatedExamID) {
         List<GeneratedExamQuestion> list = new ArrayList<>();
@@ -73,7 +73,7 @@ public class GeneratedExamQuestionDAO {
     }
 
     /**
-     * Lấy tất cả dòng trong GeneratedExamQuestions (nếu cần)
+     * Lấy tất cả GeneratedExamQuestions (nếu cần).
      */
     public List<GeneratedExamQuestion> getAllGeneratedExamQuestions() {
         List<GeneratedExamQuestion> list = new ArrayList<>();
