@@ -1,19 +1,13 @@
 package BankQuestionManagement.Service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
-
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.HttpResponse;
-import org.apache.http.entity.StringEntity;
-
-import java.io.File;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.util.List;
 
 import BankQuestionManagement.DAO.AISuggestionDAO;
 import BankQuestionManagement.DAO.AnswerDAO;
@@ -24,16 +18,23 @@ import BankQuestionManagement.Model.Answer;
 import BankQuestionManagement.Model.Exam;
 import BankQuestionManagement.Model.Question;
 
+import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.List;
+
 /**
- * Dịch vụ tương tác với Google AI Gemini API cho:
- *  - OCR (scanImage)
- *  - QA (suggestAnswer)
- *  - text-to-JSON (parseQuestionsToJson)
- *  - Lưu Question, Answer, AISuggestion vào DB
+ * Dịch vụ tương tác với Google AI Gemini API để thực hiện các chức năng:
+ * 1) OCR (scanImage)
+ * 2) QA (suggestAnswer)
+ * 3) Chuyển đổi text thành JSON cấu trúc câu hỏi (parseQuestionsToJson)
+ * 4) Lưu Question, Answer, AISuggestion vào DB
  */
 public class GeminiService {
     private static final String API_KEY = System.getenv("GEMINI_API_KEY");
-    private static final String OCR_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
+    private static final String OCR_ENDPOINT =
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent";
     private static final String QA_ENDPOINT = OCR_ENDPOINT;
 
     private final ObjectMapper mapper = new ObjectMapper();
@@ -42,21 +43,145 @@ public class GeminiService {
     private final AnswerDAO answerDAO = new AnswerDAO();
     private final AISuggestionDAO suggestionDAO = new AISuggestionDAO();
 
-    // Class hỗ trợ để Jackson map JSON trả về từ Gemini
+    /**
+     * Model phụ trợ để Jackson ánh xạ JSON trả về của Gemini.
+     */
     private static class ParsedQuestion {
         public int questionNumber;
         public String questionText;
         public List<String> options;
+        public String suggestedAnswer;
     }
 
     /**
-     * 1) Thực hiện OCR trên tệp hình ảnh và trả về raw text.
+     * 1) Tạo đề mới:
+     * - Lưu metadata đề thi (tên, mô tả, đường dẫn ảnh) vào DB.
+     * - Gọi processImageForExam để scan và lưu câu hỏi.
+     *
+     * @param imageFile   file ảnh chứa đề thi cột hỏi trắc nghiệm
+     * @param examName    tên đề thi
+     * @param description mô tả đề thi
+     * @return đối tượng Exam đã được lưu với ExamID
+     */
+    public Exam scanAndCreateExam(File imageFile, String examName, String description) throws Exception {
+        Exam exam = new Exam();
+        exam.setExamName(examName);
+        exam.setDescription(description);
+        exam.setImagePath(imageFile.getAbsolutePath());
+        int examId = examDAO.addExam(exam);
+        exam.setExamID(examId);
+
+        // Scan, phân tích và lưu câu hỏi
+        processImageForExam(imageFile, examId);
+        return exam;
+    }
+
+    /**
+     * 2) Scan lại đề cho Exam đã tồn tại:
+     * - Lấy exam theo ID, kiểm tra tồn tại và đường dẫn ảnh.
+     * - Gọi processImageForExam để xử lý.
+     *
+     * @param examId ID của exam cần scan
+     */
+    public void scanAndPopulateExistingExam(int examId) throws Exception {
+        Exam exam = examDAO.getExamById(examId);
+        if (exam == null) {
+            throw new RuntimeException("Exam với ID " + examId + " không tồn tại.");
+        }
+        File imageFile = new File(exam.getImagePath());
+        if (!imageFile.exists()) {
+            throw new RuntimeException("Tệp ảnh không tồn tại: " + exam.getImagePath());
+        }
+
+        // Xử lý OCR và lưu dữ liệu
+        processImageForExam(imageFile, examId);
+    }
+
+    /**
+     * 3) Phương thức chính:
+     * - OCR lấy rawText từ ảnh
+     * - Gọi Gemini parse thành JSON câu hỏi
+     * - Lưu Question, Answers
+     * - Gợi ý đáp án, đánh dấu IsCorrect
+     * - Lưu AISuggestion
+     *
+     * @param imageFile file ảnh đề thi
+     * @param examId    ID exam
+     */
+    private void processImageForExam(File imageFile, int examId) throws Exception {
+        // 3.1. OCR → rawText
+        String rawText = scanImage(imageFile);
+
+        // 3.2. Parse JSON từ rawText
+        String questionsRawJson = parseQuestionsToJson(rawText);
+        String questionsJson = extractJsonArray(questionsRawJson);
+        if (questionsJson == null || questionsJson.isBlank()) {
+            throw new RuntimeException(
+                    "Không tìm thấy JSON hợp lệ trong response của Gemini:\n" + questionsRawJson);
+        }
+        List<ParsedQuestion> parsedList = mapper.readValue(
+                questionsJson,
+                new TypeReference<List<ParsedQuestion>>() {}
+        );
+
+        // 3.3. Lưu dữ liệu cho mỗi câu hỏi
+        for (ParsedQuestion pq : parsedList) {
+            try {
+                // 3.3.1. Lưu Question
+                Question q = new Question(examId, pq.questionText.trim(), null);
+                int qId = questionDAO.addQuestion(q);
+                q.setQuestionID(qId);
+
+                // 3.3.2. Lưu Answers (isCorrect mặc định false)
+                List<Answer> savedAnswers = new ArrayList<>();
+                for (String opt : pq.options) {
+                    Answer a = new Answer(qId, opt.trim(), false);
+                    int aId = answerDAO.addAnswer(a);
+                    a.setAnswerID(aId);
+                    savedAnswers.add(a);
+                }
+
+                // 3.3.3. Lấy suggestedAnswer trực tiếp từ JSON
+                String aiAnswer = pq.suggestedAnswer != null ? pq.suggestedAnswer.trim() : "";
+                System.out.println("Gemini gợi ý (từ JSON): " + aiAnswer);
+
+                // 3.3.4. Match đáp án và cập nhật cờ đúng
+                Answer matched = savedAnswers.stream()
+                        .filter(a -> a.getAnswerText().equalsIgnoreCase(aiAnswer))
+                        .findFirst()
+                        .orElse(null);
+                if (matched != null) {
+                    matched.setCorrect(true);
+                    answerDAO.updateAnswer(matched);
+                    System.out.println("Đánh dấu AnswerID " + matched.getAnswerID() + " là đúng");
+                } else {
+                    System.out.println("Không tìm thấy đáp án khớp với suggestedAnswer");
+                }
+
+                // 3.3.5. Lưu AISuggestion
+                AISuggestion suggestion = new AISuggestion(qId, aiAnswer, 1.0f);
+                int sId = suggestionDAO.addAISuggestion(suggestion);
+                System.out.println("Lưu AISuggestionID: " + sId);
+
+            } catch (Exception e) {
+                System.err.println("Lỗi khi xử lý câu hỏi số " + pq.questionNumber + ": "
+                        + e.getMessage());
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * 4) Thực hiện OCR: gửi ảnh lên Gemini và trả về chuỗi raw text.
+     *
+     * @param imageFile file ảnh
+     * @return văn bản thu được
      */
     public String scanImage(File imageFile) throws Exception {
         HttpPost post = new HttpPost(OCR_ENDPOINT + "?key=" + API_KEY);
         post.addHeader("Content-Type", "application/json");
 
-        // Mã hoá image thành base64
+        // Mã hoá ảnh base64
         String base64Image = encodeImageToBase64(imageFile);
         JsonNode payload = mapper.createObjectNode()
                 .set("contents", mapper.createArrayNode()
@@ -67,13 +192,13 @@ public class GeminiService {
                                                 .set("inline_data", mapper.createObjectNode()
                                                         .put("mime_type", "image/jpeg")
                                                         .put("data", base64Image))))));
-        String json = mapper.writeValueAsString(payload);
-        post.setEntity(new StringEntity(json, StandardCharsets.UTF_8));
+        post.setEntity(new StringEntity(mapper.writeValueAsString(payload), StandardCharsets.UTF_8));
 
         try (CloseableHttpClient client = HttpClients.createDefault()) {
             HttpResponse resp = client.execute(post);
             if (resp.getStatusLine().getStatusCode() != 200) {
-                throw new RuntimeException("Yêu cầu OCR thất bại: HTTP " + resp.getStatusLine().getStatusCode());
+                throw new RuntimeException("Yêu cầu OCR thất bại: HTTP "
+                        + resp.getStatusLine().getStatusCode());
             }
             JsonNode root = mapper.readTree(resp.getEntity().getContent());
             return root.path("candidates").get(0)
@@ -83,25 +208,27 @@ public class GeminiService {
     }
 
     /**
-     * 2) Gửi prompt đến Gemini để QA, nhận về text gợi ý đáp án.
+     * 5) Gửi prompt để Gemini gợi ý đáp án (QA).
+     *
+     * @param prompt văn bản câu hỏi
+     * @return đáp án gợi ý
      */
     public String suggestAnswer(String prompt) throws Exception {
         HttpPost post = new HttpPost(QA_ENDPOINT + "?key=" + API_KEY);
         post.addHeader("Content-Type", "application/json");
 
-        // Payload chỉ gồm prompt ở “parts”
         JsonNode payload = mapper.createObjectNode()
                 .set("contents", mapper.createArrayNode()
                         .add(mapper.createObjectNode()
                                 .set("parts", mapper.createArrayNode()
                                         .add(mapper.createObjectNode().put("text", prompt)))));
-        String json = mapper.writeValueAsString(payload);
-        post.setEntity(new StringEntity(json, StandardCharsets.UTF_8));
+        post.setEntity(new StringEntity(mapper.writeValueAsString(payload), StandardCharsets.UTF_8));
 
         try (CloseableHttpClient client = HttpClients.createDefault()) {
             HttpResponse resp = client.execute(post);
             if (resp.getStatusLine().getStatusCode() != 200) {
-                throw new RuntimeException("Yêu cầu QA thất bại: HTTP " + resp.getStatusLine().getStatusCode());
+                throw new RuntimeException("Yêu cầu QA thất bại: HTTP "
+                        + resp.getStatusLine().getStatusCode());
             }
             JsonNode root = mapper.readTree(resp.getEntity().getContent());
             return root.path("candidates").get(0)
@@ -111,7 +238,10 @@ public class GeminiService {
     }
 
     /**
-     * 3) Gửi rawText (OCR) đến Gemini, yêu cầu trả về mảng JSON gồm questionNumber, questionText, options[4].
+     * 6) Gửi rawOCR đến Gemini để parse thành JSON cấu trúc câu hỏi.
+     *
+     * @param rawText văn bản OCR
+     * @return chuỗi JSON mảng questions
      */
     public String parseQuestionsToJson(String rawText) throws Exception {
         StringBuilder prompt = new StringBuilder();
@@ -120,20 +250,24 @@ public class GeminiService {
         prompt.append(rawText).append("\n\n");
         prompt.append("Hãy trích xuất tất cả các câu hỏi (選択肢付き) thành định dạng JSON như sau:\n");
         prompt.append("[\n");
-        prompt.append("  { \"questionNumber\": 1, \"questionText\": \"...\", \"options\": [\"...\",\"...\",\"...\",\"...\"] },\n");
+        prompt.append("  {\n");
+        prompt.append("    \"questionNumber\": 1,\n");
+        prompt.append("    \"questionText\": \"...\",\n");
+        prompt.append("    \"options\": [\"...\",\"...\",\"...\",\"...\"],\n");
+        prompt.append("    \"suggestedAnswer\": \"...\"  // Phải khớp chính xác với một trong các giá trị trong mảng options\n");
+        prompt.append("  },\n");
         prompt.append("  ...\n");
         prompt.append("]\n");
-        prompt.append("Mỗi phần tử của mảng JSON chứa:\n");
-        prompt.append("  - questionNumber: số thứ tự (1,2,3,...)\n");
-        prompt.append("  - questionText: chỉ phần nội dung chính (tiếng Nhật)\n");
-        prompt.append("  - options: mảng 4 phương án (chỉ text của phương án)\n");
-        prompt.append("Hãy chỉ trả về đúng chuỗi JSON, KHÔNG thêm bình luận hay giải thích.\n");
+        prompt.append("LƯU Ý:\n");
+        prompt.append("- Trường \"suggestedAnswer\" phải nằm trong mảng \"options\".\n");
+        prompt.append("- Chỉ trả về chính xác chuỗi JSON (không kèm bình luận hay văn bản giải thích).\n");
 
         return sendGeminiPrompt(prompt.toString());
     }
 
+
     /**
-     * 4) Hàm chung để gửi một prompt text đến Gemini và nhận lại text response.
+     * 7) Gửi prompt chung đến Gemini và nhận text response.
      */
     private String sendGeminiPrompt(String prompt) throws Exception {
         HttpPost post = new HttpPost(QA_ENDPOINT + "?key=" + API_KEY);
@@ -144,13 +278,13 @@ public class GeminiService {
                         .add(mapper.createObjectNode()
                                 .set("parts", mapper.createArrayNode()
                                         .add(mapper.createObjectNode().put("text", prompt)))));
-        String json = mapper.writeValueAsString(payload);
-        post.setEntity(new StringEntity(json, StandardCharsets.UTF_8));
+        post.setEntity(new StringEntity(mapper.writeValueAsString(payload), StandardCharsets.UTF_8));
 
         try (CloseableHttpClient client = HttpClients.createDefault()) {
             HttpResponse resp = client.execute(post);
             if (resp.getStatusLine().getStatusCode() != 200) {
-                throw new RuntimeException("Yêu cầu Gemini parsing thất bại: HTTP " + resp.getStatusLine().getStatusCode());
+                throw new RuntimeException("Yêu cầu Gemini parsing thất bại: HTTP "
+                        + resp.getStatusLine().getStatusCode());
             }
             JsonNode root = mapper.readTree(resp.getEntity().getContent());
             return root.path("candidates").get(0)
@@ -160,118 +294,21 @@ public class GeminiService {
     }
 
     /**
-     * 5) Lọc (sanitize) chuỗi rawJson để chỉ giữ đúng phần mảng JSON (loại bỏ backticks, markdown, v.v.).
+     * 8) Lọc (sanitize) chuỗi raw JSON để chỉ giữ mảng [...].
      */
     private String extractJsonArray(String rawJson) {
-        if (rawJson == null) {
-            return null;
-        }
+        if (rawJson == null) return null;
         String text = rawJson.trim();
-        int firstBracket = text.indexOf('[');
-        int lastBracket = text.lastIndexOf(']');
-        if (firstBracket >= 0 && lastBracket > firstBracket) {
-            return text.substring(firstBracket, lastBracket + 1);
-        }
-        return text;
+        int first = text.indexOf('[');
+        int last = text.lastIndexOf(']');
+        return (first >= 0 && last > first) ? text.substring(first, last + 1) : text;
     }
 
     /**
-     * 6) Tạo mới một Exam, lưu vào DB rồi scan để parse và lưu Question/Answer/AISuggestion.
-     */
-    public Exam scanAndCreateExam(File imageFile, String examName, String description) throws Exception {
-        // 6.1 Lưu Exam mới (ExamName, Description, ImagePath)
-        Exam exam = new Exam();
-        exam.setExamName(examName);
-        exam.setDescription(description);
-        exam.setImagePath(imageFile.getAbsolutePath());
-        int examId = examDAO.addExam(exam);
-        exam.setExamID(examId);
-
-        // 6.2 Scan ảnh, parse và lưu nội dung câu hỏi
-        processImageForExam(imageFile, examId);
-        return exam;
-    }
-
-    /**
-     * 7) Dùng khi Exam đã tồn tại (có ExamID, imagePath trong DB).
-     *    Lấy imagePath từ DB rồi scan để parse, lưu Question/Answer/AISuggestion.
-     */
-    public void scanAndPopulateExistingExam(int examId) throws Exception {
-        Exam exam = examDAO.getExamById(examId);
-        if (exam == null) {
-            throw new RuntimeException("Exam với ID " + examId + " không tồn tại.");
-        }
-        String imagePath = exam.getImagePath();
-        if (imagePath == null || imagePath.isEmpty()) {
-            throw new RuntimeException("Exam ID " + examId + " chưa có imagePath.");
-        }
-        File imageFile = new File(imagePath);
-        if (!imageFile.exists()) {
-            throw new RuntimeException("Tệp ảnh không tồn tại: " + imagePath);
-        }
-        processImageForExam(imageFile, examId);
-    }
-
-    /**
-     * 8) Phương thức chính: OCR → parse JSON → lưu Question + Answer + AISuggestion.
-     */
-    private void processImageForExam(File imageFile, int examId) throws Exception {
-        // 8.1 OCR để lấy rawText
-        String rawText = scanImage(imageFile);
-
-        // 8.2 Gọi Gemini để parse thành raw JSON (có thể kèm backticks hoặc markdown)
-        String questionsRawJson = parseQuestionsToJson(rawText);
-
-        // 8.3 Lọc (sanitize) chỉ lấy phần mảng JSON
-        String questionsJson = extractJsonArray(questionsRawJson);
-        if (questionsJson == null || questionsJson.isBlank()) {
-            throw new RuntimeException("Không tìm thấy JSON hợp lệ trong response của Gemini:\n" + questionsRawJson);
-        }
-
-        // 8.4 Dùng Jackson để map JSON thành List<ParsedQuestion>
-        List<ParsedQuestion> parsedList = mapper.readValue(
-                questionsJson,
-                new TypeReference<List<ParsedQuestion>>() {}
-        );
-
-        // 8.5 Lưu từng ParsedQuestion
-        for (ParsedQuestion pq : parsedList) {
-            try {
-                // 8.5.1 Lưu Question
-                String content = pq.questionText.trim();
-                Question q = new Question(examId, content, /* audioPath= */ null);
-                int qId = questionDAO.addQuestion(q);
-                q.setQuestionID(qId);
-                System.out.println("Đã lưu QuestionID = " + qId + ", text = " + content);
-
-                // 8.5.2 Lưu 4 phương án (isCorrect = false tạm thời)
-                for (String opt : pq.options) {
-                    String optText = opt.trim();
-                    Answer a = new Answer(qId, optText, false);
-                    int aId = answerDAO.addAnswer(a);
-                    System.out.println("    → Lưu AnswerID = " + aId + ", text = " + optText);
-                }
-
-                // 8.5.3 Gọi Gemini để dự đoán đáp án (AI gợi ý)
-                String aiAnswer = suggestAnswer(content);
-                float confidence = 1.0f; // Giữ mặc định, hoặc parse nếu muốn
-                AISuggestion suggestion = new AISuggestion(qId, aiAnswer, confidence);
-                int sId = suggestionDAO.addAISuggestion(suggestion);
-                System.out.println("    → Lưu AISuggestionID = " + sId + ", gợi ý = " + aiAnswer);
-
-            } catch (Exception e) {
-                // Nếu có lỗi với câu hỏi này, log và tiếp tục câu kế tiếp
-                System.err.println("Lỗi khi xử lý câu hỏi số " + pq.questionNumber + ": " + e.getMessage());
-                e.printStackTrace();
-            }
-        }
-    }
-
-    /**
-     * 9) Mã hóa File ảnh thành Base64.
+     * 9) Encode ảnh thành Base64.
      */
     private String encodeImageToBase64(File imageFile) throws Exception {
-        byte[] fileContent = java.nio.file.Files.readAllBytes(imageFile.toPath());
-        return Base64.getEncoder().encodeToString(fileContent);
+        byte[] content = java.nio.file.Files.readAllBytes(imageFile.toPath());
+        return Base64.getEncoder().encodeToString(content);
     }
 }
