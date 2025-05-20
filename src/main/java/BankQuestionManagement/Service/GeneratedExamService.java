@@ -15,19 +15,18 @@ public class GeneratedExamService {
     private final GeneratedExamQuestionDAO genExamQDAO = new GeneratedExamQuestionDAO();
 
     /**
-     * Sinh ngẫu nhiên một đề gồm `count` câu hỏi từ ngân hàng đề gốc `examId`.
-     * - Lấy tất cả câu hỏi
+     * Sinh ngẫu nhiên một đề gồm `count` câu hỏi từ toàn bộ ngân hàng câu hỏi.
+     * - Lấy tất cả câu hỏi trong Question
      * - Xáo trộn
      * - Chọn count câu
      * - Tạo bản ghi GeneratedExam, rồi lưu vào GeneratedExamQuestions
      *
-     * @param examId mã đề gốc
      * @param count  số câu hỏi muốn lấy
-     * @return GeneratedExam có generatedExamID và danh sách câu hỏi đã chọn (setQuestions)
+     * @return GeneratedExam với generatedExamID và danh sách câu hỏi đã chọn
      */
-    public GeneratedExam generateRandomExam(int examId, int count) {
-        // 1. Lấy toàn bộ
-        List<Question> all = questionDAO.getQuestionsByExamID(examId);
+    public GeneratedExam generateRandomExam(int count) {
+        // 1. Lấy toàn bộ câu hỏi
+        List<Question> all = questionDAO.getAllQuestions();
         if (all.size() < count) {
             throw new IllegalArgumentException(
                     "Không đủ câu hỏi (" + all.size() + ") để tạo đề " + count + " câu."
@@ -39,7 +38,7 @@ public class GeneratedExamService {
         List<Question> chosen = all.subList(0, count);
 
         // 3. Tạo GeneratedExam (chưa có exportPath)
-        String title = "Random from Exam#" + examId + " (" + count + " items)";
+        String title = "Random Exam (" + count + " items)";
         GeneratedExam ge = new GeneratedExam(title, "");
         int genId = genExamDAO.addGeneratedExam(ge);
         ge.setGeneratedExamID(genId);
@@ -50,7 +49,7 @@ public class GeneratedExamService {
         }
 
         // 5. Gắn lại danh sách đã chọn để trả về
-        ge.setQuestions(chosen);  // bạn có thể thêm trường List<Question> vào GeneratedExam model
+        ge.setQuestions(chosen);
         return ge;
     }
 }

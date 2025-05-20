@@ -11,9 +11,9 @@ public class TestExamDAO {
 
         // Thêm đề mới
         Exam newExam = new Exam();
-        newExam.setExamName("DE_THI_JLPT_N3");
-        newExam.setDescription("Đề luyện tập N3 tháng 7");
-        newExam.setImagePath("C:/Users/Ton That Van/Downloads/DE_THI_TIENG_NHAT/1 (1).jpg");
+        newExam.setExamName("DE_THI_JLPT_N2");
+        newExam.setDescription("Đề luyện tập N2 tháng 7");
+        newExam.setImagePath("C:/Users/Ton That Van/Downloads/DE_THI_TIENG_NHAT/1 (2).jpg");
         dao.addExam(newExam);
 
 //        // Hiển thị tất cả đề thi

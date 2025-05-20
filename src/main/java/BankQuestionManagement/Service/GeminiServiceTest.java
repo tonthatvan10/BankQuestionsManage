@@ -8,7 +8,7 @@ public class GeminiServiceTest {
         GeminiService geminiService = new GeminiService();
 
         // ID của Exam đã tồn tại trong database
-        int existingExamId = 1;
+        int existingExamId = 2;
 
         try {
             System.out.println("Bắt đầu xử lý Exam với ID = " + existingExamId + "...");
