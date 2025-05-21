@@ -71,11 +71,6 @@ public class GeneratedExam {
 
     @Override
     public String toString() {
-        return "GeneratedExam{" +
-                "generatedExamID=" + generatedExamID +
-                ", examName='" + examName + '\'' +
-                ", exportPath='" + exportPath + '\'' +
-                ", createdDate=" + createdDate +
-                '}';
+        return examName;
     }
 }
