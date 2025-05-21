@@ -37,18 +37,30 @@ public class GeneratedExamService {
         Collections.shuffle(all);
         List<Question> chosen = all.subList(0, count);
 
-        // 3. Tạo GeneratedExam (chưa có exportPath)
-        String title = "Random Exam (" + count + " items)";
-        GeneratedExam ge = new GeneratedExam(title, "");
+        // 3. Tạo GeneratedExam với tên tạm (rỗng hoặc bất kỳ)
+        GeneratedExam ge = new GeneratedExam("", "");
         int genId = genExamDAO.addGeneratedExam(ge);
+        if (genId < 0) {
+            throw new RuntimeException("Tạo GeneratedExam thất bại.");
+        }
         ge.setGeneratedExamID(genId);
 
-        // 4. Lưu mỗi câu vào GeneratedExamQuestions
+        // 4. Cập nhật lại ExamName theo ID vừa sinh
+        String logicalName = "RandomExam_" + genId;
+        ge.setExamName(logicalName);
+        // (nếu muốn thay đổi exportPath lúc này cũng gọi ge.setExportPath(...))
+        boolean updated = genExamDAO.updateGeneratedExam(ge);
+        if (!updated) {
+            // xử lý nếu update thất bại
+            System.err.println("Cảnh báo: không cập nhật được tên đề cho GeneratedExamID=" + genId);
+        }
+
+        // 5. Lưu mỗi câu vào GeneratedExamQuestions
         for (Question q : chosen) {
             genExamQDAO.addGeneratedExamQuestion(genId, q.getQuestionID());
         }
 
-        // 5. Gắn lại danh sách đã chọn để trả về
+        // 6. Gán danh sách câu hỏi để trả về
         ge.setQuestions(chosen);
         return ge;
     }

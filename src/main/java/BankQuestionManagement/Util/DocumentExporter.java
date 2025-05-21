@@ -10,6 +10,9 @@ import BankQuestionManagement.Model.Exam;
 import BankQuestionManagement.Model.GeneratedExam;
 import BankQuestionManagement.Model.GeneratedExamQuestion;
 import BankQuestionManagement.Model.Question;
+import com.itextpdf.io.font.PdfEncodings;
+import com.itextpdf.kernel.font.PdfFont;
+import com.itextpdf.kernel.font.PdfFontFactory;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
@@ -37,6 +40,8 @@ public class DocumentExporter {
     private final GeneratedExamDAO genExamDAO = new GeneratedExamDAO();
     private final GeneratedExamQuestionDAO genQuestionDAO = new GeneratedExamQuestionDAO();
 
+    private static final String FONT_PATH = "C:/Users/Ton That Van/Downloads/NNN/NotoSerifCJKjp-SemiBold.otf";
+
     private String sanitizeFileName(String name) {
         if (name == null) return "exam";
         return name.replaceAll("[^a-zA-Z0-9\\-_]", "_")
@@ -50,6 +55,7 @@ public class DocumentExporter {
         int num = 1;
         for (Question q : questions) {
             XWPFParagraph p = doc.createParagraph();
+            p.setAlignment(ParagraphAlignment.LEFT);
             p.setSpacingBetween(1.2);
             XWPFRun r = p.createRun();
             r.setText(num++ + ". " + q.getContent());
@@ -67,11 +73,11 @@ public class DocumentExporter {
         }
     }
 
-    private void writeAnswerKeyDocx(XWPFDocument doc, String titleText, List<Question> questions) {
-        // Title already written outside
+    private void writeAnswerKeyDocx(XWPFDocument doc, List<Question> questions) {
         int num = 1;
         for (Question q : questions) {
             XWPFParagraph p = doc.createParagraph();
+            p.setAlignment(ParagraphAlignment.LEFT);
             p.setSpacingBetween(1.2);
             XWPFRun r = p.createRun();
             r.setText(num++ + ". " + q.getContent());
@@ -91,24 +97,30 @@ public class DocumentExporter {
         }
     }
 
-    private void writeQuestionsPdf(Document document, List<Question> questions) {
+    private void writeQuestionsPdf(Document document, PdfFont font, List<Question> questions) {
         int num = 1;
         for (Question q : questions) {
-            document.add(new Paragraph(num++ + ". " + q.getContent()));
+            document.add(new Paragraph(num++ + ". " + q.getContent()).setFont(font));
+            char label = 'a';
+            List<Answer> answers = answerDAO.getAnswersByQuestionID(q.getQuestionID());
+            for (Answer a : answers) {
+                document.add(new Paragraph("    " + label++ + ". " + a.getAnswerText()).setFont(font));
+            }
+            document.add(new Paragraph(" ").setFont(font));
         }
     }
 
-    private void writeAnswerKeyPdf(Document document, List<Question> questions) {
+    private void writeAnswerKeyPdf(Document document, PdfFont font, List<Question> questions) {
         int num = 1;
         for (Question q : questions) {
-            document.add(new Paragraph(num++ + ". " + q.getContent()));
+            document.add(new Paragraph(num++ + ". " + q.getContent()).setFont(font));
             char label = 'a';
             for (Answer a : answerDAO.getAnswersByQuestionID(q.getQuestionID())) {
                 String text = label++ + ". " + a.getAnswerText();
                 if (a.isCorrect()) text += " (Correct)";
-                document.add(new Paragraph("   " + text));
+                document.add(new Paragraph("    " + text).setFont(font));
             }
-            document.add(new Paragraph(" "));
+            document.add(new Paragraph(" ").setFont(font));
         }
     }
 
@@ -128,7 +140,6 @@ public class DocumentExporter {
         doc.createParagraph();
 
         writeQuestionsDocx(doc, questions);
-        // Save
         new File(outputFolder).mkdirs();
         String name = sanitizeFileName(exam.getExamName());
         String file = outputFolder + File.separator + name + ".docx";
@@ -148,7 +159,7 @@ public class DocumentExporter {
         run.setText(exam.getExamName() + " - Answer Key"); run.setBold(true); run.setFontSize(18);
         doc.createParagraph();
 
-        writeAnswerKeyDocx(doc, exam.getExamName(), questions);
+        writeAnswerKeyDocx(doc, questions);
         new File(outputFolder).mkdirs();
         String name = sanitizeFileName(exam.getExamName());
         String file = outputFolder + File.separator + name + "_Answers.docx";
@@ -167,11 +178,12 @@ public class DocumentExporter {
 
         PdfWriter writer = new PdfWriter(file);
         PdfDocument pdf = new PdfDocument(writer);
+        PdfFont font = PdfFontFactory.createFont(FONT_PATH, PdfEncodings.IDENTITY_H);
         Document doc = new Document(pdf);
 
-        doc.add(new Paragraph(exam.getExamName()).setBold().setFontSize(16));
-        doc.add(new Paragraph(" "));
-        writeQuestionsPdf(doc, questions);
+        doc.add(new Paragraph(exam.getExamName()).setBold().setFontSize(16).setFont(font));
+        doc.add(new Paragraph(" ").setFont(font));
+        writeQuestionsPdf(doc, font, questions);
         doc.close();
         return file;
     }
@@ -187,11 +199,12 @@ public class DocumentExporter {
 
         PdfWriter writer = new PdfWriter(file);
         PdfDocument pdf = new PdfDocument(writer);
+        PdfFont font = PdfFontFactory.createFont(FONT_PATH, PdfEncodings.IDENTITY_H);
         Document doc = new Document(pdf);
 
-        doc.add(new Paragraph(exam.getExamName() + " - Answer Key").setBold().setFontSize(16));
-        doc.add(new Paragraph(" "));
-        writeAnswerKeyPdf(doc, questions);
+        doc.add(new Paragraph(exam.getExamName() + " - Answer Key").setBold().setFontSize(16).setFont(font));
+        doc.add(new Paragraph(" ").setFont(font));
+        writeAnswerKeyPdf(doc, font, questions);
         doc.close();
         return file;
     }
@@ -238,7 +251,7 @@ public class DocumentExporter {
         run.setText(ge.getExamName() + " - Answer Key"); run.setBold(true); run.setFontSize(18);
         doc.createParagraph();
 
-        writeAnswerKeyDocx(doc, ge.getExamName(), questions);
+        writeAnswerKeyDocx(doc, questions);
         new File(outputFolder).mkdirs();
         String name = sanitizeFileName(ge.getExamName());
         String file = outputFolder + File.separator + name + "_Answers.docx";
@@ -259,13 +272,15 @@ public class DocumentExporter {
         new File(outputFolder).mkdirs();
         String name = sanitizeFileName(ge.getExamName());
         String file = outputFolder + File.separator + name + ".pdf";
+
         PdfWriter writer = new PdfWriter(file);
         PdfDocument pdf = new PdfDocument(writer);
+        PdfFont font = PdfFontFactory.createFont(FONT_PATH, PdfEncodings.IDENTITY_H);
         Document doc = new Document(pdf);
 
-        doc.add(new Paragraph(ge.getExamName()).setBold().setFontSize(16));
-        doc.add(new Paragraph(" "));
-        writeQuestionsPdf(doc, questions);
+        doc.add(new Paragraph(ge.getExamName()).setBold().setFontSize(16).setFont(font));
+        doc.add(new Paragraph(" ").setFont(font));
+        writeQuestionsPdf(doc, font, questions);
         doc.close();
         ge.setExportPath(file);
         genExamDAO.updateGeneratedExam(ge);
@@ -283,13 +298,15 @@ public class DocumentExporter {
         new File(outputFolder).mkdirs();
         String name = sanitizeFileName(ge.getExamName());
         String file = outputFolder + File.separator + name + "_Answers.pdf";
+
         PdfWriter writer = new PdfWriter(file);
         PdfDocument pdf = new PdfDocument(writer);
+        PdfFont font = PdfFontFactory.createFont(FONT_PATH, PdfEncodings.IDENTITY_H);
         Document doc = new Document(pdf);
 
-        doc.add(new Paragraph(ge.getExamName() + " - Answer Key").setBold().setFontSize(16));
-        doc.add(new Paragraph(" "));
-        writeAnswerKeyPdf(doc, questions);
+        doc.add(new Paragraph(ge.getExamName() + " - Answer Key").setBold().setFontSize(16).setFont(font));
+        doc.add(new Paragraph(" ").setFont(font));
+        writeAnswerKeyPdf(doc, font, questions);
         doc.close();
         ge.setExportPath(file);
         genExamDAO.updateGeneratedExam(ge);

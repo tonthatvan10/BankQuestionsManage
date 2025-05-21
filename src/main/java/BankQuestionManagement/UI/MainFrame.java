@@ -252,29 +252,40 @@ public class MainFrame extends JFrame {
         private final GeneratedExamDAO genDAO = new GeneratedExamDAO();
         private final DocumentExporter exporter = new DocumentExporter();
 
-        // Chứa cả Exam và GeneratedExam
+        // Combo chứa cả Exam và GeneratedExam
         private final JComboBox<Object> combo = new JComboBox<>();
-        private final JSpinner numSpinner = new JSpinner(new SpinnerNumberModel(1,1,100,1));
-        private final JComboBox<String> formatBox = new JComboBox<>(new String[]{"PDF","DOCX"});
+        private final JComboBox<String> formatBox = new JComboBox<>(new String[]{"PDF", "DOCX"});
 
         public ExportPanel() {
             setLayout(new BorderLayout());
-            JToolBar bar = new JToolBar();
-            bar.add(new JLabel("Chọn đề:")); bar.add(combo);
-            bar.add(new JLabel("Số đề:")); bar.add(numSpinner);
-            bar.add(new JLabel("Định dạng:")); bar.add(formatBox);
+
+            // Phần trên: selector & format
+            JPanel topBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 5));
+            topBar.add(new JLabel("Chọn đề:"));
+            combo.setPreferredSize(new Dimension(300, 24));
+            topBar.add(combo);
+
+            topBar.add(new JLabel("Định dạng:"));
+            formatBox.setPreferredSize(new Dimension(80, 24));
+            topBar.add(formatBox);
+
+            add(topBar, BorderLayout.NORTH);
+
+            // Phần dưới: nút xuất
+            JPanel bottomBar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 5));
             JButton btn = new JButton("Xuất File");
             btn.addActionListener(e -> doExport());
-            bar.add(btn);
-            add(bar, BorderLayout.NORTH);
+            bottomBar.add(btn);
+            add(bottomBar, BorderLayout.SOUTH);
 
+            // Nạp dữ liệu vào combo
             loadItems();
         }
 
         private void loadItems() {
             combo.removeAllItems();
-            for (Exam e: examDAO.getAllExams()) combo.addItem(e);
-            for (GeneratedExam ge: genDAO.getAllGeneratedExams()) combo.addItem(ge);
+            for (Exam e : examDAO.getAllExams()) combo.addItem(e);
+            for (GeneratedExam ge : genDAO.getAllGeneratedExams()) combo.addItem(ge);
         }
 
         private void doExport() {
@@ -283,41 +294,35 @@ public class MainFrame extends JFrame {
                 JOptionPane.showMessageDialog(this, "Chọn đề để xuất", "Lỗi", JOptionPane.ERROR_MESSAGE);
                 return;
             }
-            int count = (int) numSpinner.getValue();
-            String fmt = (String) formatBox.getSelectedItem();
 
             JFileChooser fc = new JFileChooser();
             fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
             if (fc.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
             String dir = fc.getSelectedFile().getAbsolutePath();
 
-            new SwingWorker<Void,Void>() {
+            new SwingWorker<Void, Void>() {
                 Exception ex;
                 @Override protected Void doInBackground() {
                     try {
                         if (sel instanceof Exam) {
                             Exam exam = (Exam) sel;
-                            for (int i = 0; i < count; i++) {
-                                if ("DOCX".equals(fmt)) {
-                                    exporter.exportExamToDocx(exam.getExamID(), dir);
-                                    exporter.exportExamAnswersToDocx(exam.getExamID(), dir);
-                                } else {
-                                    exporter.exportExamToPdf(exam.getExamID(), dir);
-                                    exporter.exportExamAnswersToPdf(exam.getExamID(), dir);
-                                }
+                            // Xuất một lần
+                            if ("DOCX".equals(formatBox.getSelectedItem())) {
+                                exporter.exportExamToDocx(exam.getExamID(), dir);
+                                exporter.exportExamAnswersToDocx(exam.getExamID(), dir);
+                            } else {
+                                exporter.exportExamToPdf(exam.getExamID(), dir);
+                                exporter.exportExamAnswersToPdf(exam.getExamID(), dir);
                             }
                         } else {
                             GeneratedExam ge = (GeneratedExam) sel;
-                            for (int i = 0; i < count; i++) {
-                                if ("DOCX".equals(fmt)) {
-                                    exporter.exportGeneratedExamToDocx(ge.getGeneratedExamID(), dir);
-                                    // ---- thêm dòng xuất answer key cho GeneratedExam ----
-                                    exporter.exportGeneratedExamAnswersToDocx(ge.getGeneratedExamID(), dir);
-                                } else {
-                                    exporter.exportGeneratedExamToPdf(ge.getGeneratedExamID(), dir);
-                                    // ---- thêm dòng xuất answer key cho GeneratedExam ----
-                                    exporter.exportGeneratedExamAnswersToPdf(ge.getGeneratedExamID(), dir);
-                                }
+                            // Xuất một lần
+                            if ("DOCX".equals(formatBox.getSelectedItem())) {
+                                exporter.exportGeneratedExamToDocx(ge.getGeneratedExamID(), dir);
+                                exporter.exportGeneratedExamAnswersToDocx(ge.getGeneratedExamID(), dir);
+                            } else {
+                                exporter.exportGeneratedExamToPdf(ge.getGeneratedExamID(), dir);
+                                exporter.exportGeneratedExamAnswersToPdf(ge.getGeneratedExamID(), dir);
                             }
                         }
                     } catch (Exception e) {
@@ -335,6 +340,8 @@ public class MainFrame extends JFrame {
             }.execute();
         }
     }
+
+
 
 
     // Dialog thêm Exam và scan OCR
