@@ -9,17 +9,19 @@ public class Exam {
     private String imagePath;  // NVARCHAR(500)
     private Timestamp createdDate;
     private Timestamp modifiedDate;
+    private String exportPath;    // Đường dẫn lưu file PDF/DOC
 
     public Exam() {
     }
 
-    public Exam(int examID, String examName, String description, String imagePath, Timestamp createdDate, Timestamp modifiedDate) {
+    public Exam(int examID, String examName, String exportPath, String description, String imagePath, Timestamp createdDate, Timestamp modifiedDate) {
         this.examID = examID;
         this.examName = examName;
         this.description = description;
         this.imagePath = imagePath;
         this.createdDate = createdDate;
         this.modifiedDate = modifiedDate;
+        this.exportPath = exportPath;
     }
 
     public int getExamID() {
@@ -68,6 +70,14 @@ public class Exam {
 
     public void setModifiedDate(Timestamp modifiedDate) {
         this.modifiedDate = modifiedDate;
+    }
+
+    public String getExportPath() {
+        return exportPath;
+    }
+
+    public void setExportPath(String exportPath) {
+        this.exportPath = exportPath;
     }
 
     @Override

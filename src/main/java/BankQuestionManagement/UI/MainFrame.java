@@ -17,6 +17,7 @@ import java.util.Objects;
 import java.util.List;
 import java.util.Comparator;
 import javax.swing.SwingWorker;
+import static javax.swing.JOptionPane.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.ArrayList;
@@ -105,60 +106,90 @@ public class MainFrame extends JFrame {
         public void refresh(){ cards.removeAll(); initCards(); cards.revalidate(); cards.repaint(); }
     }
 
-    static class ManageAllExamsPanel extends JPanel{
-        private final ExamDAO examDAO=new ExamDAO();
-        private final GeneratedExamDAO genDAO=new GeneratedExamDAO();
-        private final DefaultTableModel model=new DefaultTableModel(new String[]{"Loại","ID","Tên","Ngày Tạo"},0){@Override public boolean isCellEditable(int row,int col){return false;}};
-        private final JTable table=new JTable(model);
-        public ManageAllExamsPanel(){
+    static class ManageAllExamsPanel extends JPanel {
+        private final ExamDAO examDAO = new ExamDAO();
+        private final GeneratedExamDAO genDAO = new GeneratedExamDAO();
+
+        // 1. Thêm "ExportPath" vào header cột
+        private final DefaultTableModel model = new DefaultTableModel(
+                new String[]{"Loại", "ID", "Tên", "Ngày Tạo", "ExportPath"},
+                0
+        ) {
+            @Override public boolean isCellEditable(int row, int col) {
+                return false;
+            }
+        };
+        private final JTable table = new JTable(model);
+
+        public ManageAllExamsPanel() {
             setLayout(new BorderLayout(10,10));
             setBorder(new EmptyBorder(10,10,10,10));
-            JPanel bar=new JPanel(new FlowLayout(FlowLayout.LEFT,10,10));
-            JButton addBtn=new JButton("Thêm Exam");
-            JButton detailBtn=new JButton("Chi tiết");
+            JPanel bar = new JPanel(new FlowLayout(FlowLayout.LEFT,10,10));
+            JButton addBtn = new JButton("Thêm Exam");
+            JButton detailBtn = new JButton("Chi tiết");
             bar.add(addBtn);
             bar.add(detailBtn);
-            add(bar,BorderLayout.NORTH);
-            add(new JScrollPane(table),BorderLayout.CENTER);
+            add(bar, BorderLayout.NORTH);
+            add(new JScrollPane(table), BorderLayout.CENTER);
+
             loadData();
-            addBtn.addActionListener(e->{
+
+            addBtn.addActionListener(e -> {
                 AddExamDialog dlg = new AddExamDialog((Frame)SwingUtilities.getWindowAncestor(this));
                 dlg.setVisible(true);
                 loadData();
             });
-            detailBtn.addActionListener(e-> showDetails());
+            detailBtn.addActionListener(e -> showDetails());
         }
-        private void loadData(){
+
+        private void loadData() {
             model.setRowCount(0);
-            for(Exam ex: examDAO.getAllExams()){
-                model.addRow(new Object[]{"Exam",ex.getExamID(),ex.getExamName(),ex.getModifiedDate()});
+
+            // Load Exam thường
+            for (Exam ex : examDAO.getAllExams()) {
+                model.addRow(new Object[]{
+                        "Exam",
+                        ex.getExamID(),
+                        ex.getExamName(),
+                        ex.getModifiedDate(),
+                        ex.getExportPath()   // lấy exportPath từ model
+                });
             }
-            for(GeneratedExam ge: genDAO.getAllGeneratedExams()){
-                model.addRow(new Object[]{"Generated",ge.getGeneratedExamID(),ge.getExamName(),ge.getCreatedDate()});
+
+            // Load GeneratedExam
+            for (GeneratedExam ge : genDAO.getAllGeneratedExams()) {
+                model.addRow(new Object[]{
+                        "Generated",
+                        ge.getGeneratedExamID(),
+                        ge.getExamName(),
+                        ge.getCreatedDate(),
+                        ge.getExportPath()   // lấy exportPath từ model
+                });
             }
         }
-        public void refresh(){ loadData(); }
-        private void showDetails(){
-            int r=table.getSelectedRow();
-            if(r<0){
-                JOptionPane.showMessageDialog(this,"Chọn dòng để xem chi tiết.","Cảnh báo",JOptionPane.WARNING_MESSAGE);
+
+        public void refresh() {
+            loadData();
+        }
+
+        private void showDetails() {
+            int r = table.getSelectedRow();
+            if (r < 0) {
+                JOptionPane.showMessageDialog(this, "Chọn dòng để xem chi tiết.", "Cảnh báo", JOptionPane.WARNING_MESSAGE);
                 return;
             }
-            String type=(String)model.getValueAt(r,0);
-            int id=(int)model.getValueAt(r,1);
-            if("Exam".equals(type)){
-                Exam ex=examDAO.getExamById(id);
-                new DetailDialog((Frame)SwingUtilities.getWindowAncestor(this),ex).setVisible(true);
+            String type = (String)model.getValueAt(r, 0);
+            int id      = (int)model.getValueAt(r, 1);
+            if ("Exam".equals(type)) {
+                Exam ex = examDAO.getExamById(id);
+                new DetailDialog((Frame)SwingUtilities.getWindowAncestor(this), ex).setVisible(true);
             } else {
-                GeneratedExam ge=genDAO.getGeneratedExamByID(id);
-                new DetailDialog((Frame)SwingUtilities.getWindowAncestor(this),ge).setVisible(true);
+                GeneratedExam ge = genDAO.getGeneratedExamByID(id);
+                new DetailDialog((Frame)SwingUtilities.getWindowAncestor(this), ge).setVisible(true);
             }
             loadData();
         }
     }
-
-
-
 
     // -------- GeneratedExamPanel --------
     static class GeneratedExamPanel extends JPanel {
@@ -253,39 +284,66 @@ public class MainFrame extends JFrame {
 
         private void doExport() {
             Object sel = combo.getSelectedItem();
-            if (sel == null) { JOptionPane.showMessageDialog(this,"Chọn đề để xuất","Lỗi",JOptionPane.ERROR_MESSAGE); return; }
-            JFileChooser fc = new JFileChooser(); fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+            if (sel == null) {
+                JOptionPane.showMessageDialog(this, "Chọn đề để xuất", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            JFileChooser fc = new JFileChooser();
+            fc.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
             if (fc.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
             String dir = fc.getSelectedFile().getAbsolutePath();
-            new SwingWorker<Void,Void>() {
+
+            new SwingWorker<Void, Void>() {
                 Exception ex;
-                @Override protected Void doInBackground() {
+
+                @Override
+                protected Void doInBackground() {
                     try {
+                        // 1) Xuất file
                         if (sel instanceof Exam) {
                             Exam exam = (Exam) sel;
-                            if (Objects.equals(formatBox.getSelectedItem(), "DOCX")) {
+                            if ("DOCX".equals(formatBox.getSelectedItem())) {
                                 exporter.exportExamToDocx(exam.getExamID(), dir);
                                 exporter.exportExamAnswersToDocx(exam.getExamID(), dir);
                             } else {
                                 exporter.exportExamToPdf(exam.getExamID(), dir);
                                 exporter.exportExamAnswersToPdf(exam.getExamID(), dir);
                             }
+                            // 2) Lưu exportPath vào DB
+                            String ep = dir + File.separator + "Exam_" + exam.getExamID() + "." +
+                                    (formatBox.getSelectedItem().equals("DOCX") ? "docx" : "pdf");
+                            exam.setExportPath(ep);
+                            new ExamDAO().updateExportPath(exam.getExamID(), ep);
+
                         } else {
                             GeneratedExam ge = (GeneratedExam) sel;
-                            if (Objects.equals(formatBox.getSelectedItem(), "DOCX")) {
+                            if ("DOCX".equals(formatBox.getSelectedItem())) {
                                 exporter.exportGeneratedExamToDocx(ge.getGeneratedExamID(), dir);
                                 exporter.exportGeneratedExamAnswersToDocx(ge.getGeneratedExamID(), dir);
                             } else {
                                 exporter.exportGeneratedExamToPdf(ge.getGeneratedExamID(), dir);
                                 exporter.exportGeneratedExamAnswersToPdf(ge.getGeneratedExamID(), dir);
                             }
+                            // Lưu exportPath
+                            String ep = dir + File.separator + "GeneratedExam_" + ge.getGeneratedExamID() + "." +
+                                    (formatBox.getSelectedItem().equals("DOCX") ? "docx" : "pdf");
+                            ge.setExportPath(ep);
+                            new GeneratedExamDAO().updateExportPath(ge.getGeneratedExamID(), ep);
                         }
-                    } catch (Exception e) { ex = e; }
+                    } catch (Exception e) {
+                        ex = e;
+                    }
                     return null;
                 }
-                @Override protected void done() {
-                    if (ex != null) JOptionPane.showMessageDialog(ExportPanel.this,ex.getMessage(),"Lỗi",JOptionPane.ERROR_MESSAGE);
-                    else JOptionPane.showMessageDialog(ExportPanel.this,"Xuất thành công!","OK",JOptionPane.INFORMATION_MESSAGE);
+
+                @Override
+                protected void done() {
+                    if (ex != null) {
+                        JOptionPane.showMessageDialog(ExportPanel.this, ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    } else {
+                        JOptionPane.showMessageDialog(ExportPanel.this, "Xuất thành công!", "OK",
+                                JOptionPane.INFORMATION_MESSAGE);
+                    }
                 }
             }.execute();
         }

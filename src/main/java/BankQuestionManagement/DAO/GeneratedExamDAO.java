@@ -133,4 +133,21 @@ public class GeneratedExamDAO {
         }
         return list;
     }
+
+    /**
+     * Cập nhật trường ExportPath cho GeneratedExam.
+     */
+    public boolean updateExportPath(int genExamID, String exportPath) {
+        String sql = "UPDATE GeneratedExams SET ExportPath = ? WHERE GeneratedExamID = ?";
+        try (Connection conn = DatabaseConnector.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, exportPath);
+            ps.setInt(2, genExamID);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
 }

@@ -88,8 +88,8 @@ public class EditExamDialog extends JDialog {
             imgP.add(btnImg);
             c.gridx = 1;
             header.add(imgP, c);
-        } else {
-            // Row 1 for GeneratedExam: Label "Đường dẫn xuất:" and exportField (reuse imageField)
+        }
+        else{
             c.gridx = 0;
             c.gridy = 1;
             header.add(new JLabel("Đường dẫn xuất:"), c);
@@ -222,37 +222,65 @@ public class EditExamDialog extends JDialog {
         pnl.add(pickAudio, c);
 
         int res = JOptionPane.showConfirmDialog(this, pnl, "Thêm câu hỏi", JOptionPane.OK_CANCEL_OPTION);
-        if (res == JOptionPane.OK_OPTION) {
-            String content = txtQ.getText().trim();
-            String audio = txtAudio.getText().trim();
-            if (content.isEmpty()) {
-                JOptionPane.showMessageDialog(this,
-                        "Nội dung câu hỏi không được để trống!",
-                        "Cảnh báo",
-                        JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            int parentExamID = isGenerated ? genExam.getGeneratedExamID() : exam.getExamID();
-            Question newQ = new Question(parentExamID, content, audio);
-            int newId = questionDAO.addQuestion(newQ);
-            for (int i = 0; i < 4; i++) {
-                String at = txtA[i].getText().trim();
-                if (!at.isEmpty()) {
-                    Answer a = new Answer(newId, at, rb[i].isSelected());
-                    answerDAO.addAnswer(a);
+        if (res != JOptionPane.OK_OPTION) return;
+
+        String content = txtQ.getText().trim();
+        String audio = txtAudio.getText().trim();
+        if (content.isEmpty()) {
+            JOptionPane.showMessageDialog(this,
+                    "Nội dung câu hỏi không được để trống!",
+                    "Cảnh báo",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int parentExamID = isGenerated ? genExam.getGeneratedExamID() : exam.getExamID();
+        Question newQ = new Question(parentExamID, content, audio);
+
+        // 1) Thêm Question và kiểm tra ID trả về
+        int newId = questionDAO.addQuestion(newQ);
+        if (newId <= 0) {
+            JOptionPane.showMessageDialog(this,
+                    "Không tạo được câu hỏi mới trong cơ sở dữ liệu!",
+                    "Lỗi",
+                    JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        // 2) Thêm các Answer, bạn có thể kiểm tra lỗi tương tự nếu muốn
+        for (int i = 0; i < 4; i++) {
+            String at = txtA[i].getText().trim();
+            if (!at.isEmpty()) {
+                Answer a = new Answer(newId, at, rb[i].isSelected());
+                int aid = answerDAO.addAnswer(a);
+                if (aid <= 0) {
+                    // Nếu thêm answer thất bại, bạn có thể log hoặc báo warning
+                    System.err.println("Không thêm được answer cho QuestionID=" + newId);
                 }
             }
-            // If GeneratedExam, link to GeneratedExamQuestions
-            if (isGenerated) {
-                genQDAO.addGeneratedExamQuestion(genExam.getGeneratedExamID(), newId);
-            }
-            questionModel.addRow(new Object[]{newId, content, audio});
-            JOptionPane.showMessageDialog(this,
-                    "Thêm câu hỏi thành công!",
-                    "Thông báo",
-                    JOptionPane.INFORMATION_MESSAGE);
         }
+
+        // 3) Với GeneratedExam: liên kết vào GeneratedExamQuestions
+        if (isGenerated) {
+            boolean linked = genQDAO.addGeneratedExamQuestion(genExam.getGeneratedExamID(), newId);
+            if (!linked) {
+                JOptionPane.showMessageDialog(this,
+                        "Không tạo được liên kết giữa GeneratedExam và Question!",
+                        "Lỗi",
+                        JOptionPane.ERROR_MESSAGE);
+                // (tuỳ chọn) bạn có thể gọi questionDAO.deleteQuestion(newId) để rollback
+                return;
+            }
+        }
+
+        // 4) Cập nhật UI
+        questionModel.addRow(new Object[]{newId, content, audio});
+        JOptionPane.showMessageDialog(this,
+                "Thêm câu hỏi thành công!",
+                "Thông báo",
+                JOptionPane.INFORMATION_MESSAGE);
     }
+
 
     private void deleteQuestion() {
         int r = questionTable.getSelectedRow();
@@ -334,7 +362,8 @@ public class EditExamDialog extends JDialog {
             String content = (String) questionModel.getValueAt(i, 1);
             String audio = (String) questionModel.getValueAt(i, 2);
             Question q = questionDAO.getQuestionByID(qid);
-            if (!q.getContent().equals(content) || !q.getAudioPath().equals(audio)) {
+            if (!q.getContent().equals(content) ||
+                    (q.getAudioPath() == null ? audio != null : !q.getAudioPath().equals(audio))) {
                 q.setContent(content);
                 q.setAudioPath(audio);
                 questionDAO.updateQuestion(q);

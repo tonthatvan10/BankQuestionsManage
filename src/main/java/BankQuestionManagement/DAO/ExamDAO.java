@@ -51,7 +51,7 @@ public class ExamDAO {
      */
     public List<Exam> getAllExams() {
         List<Exam> exams = new ArrayList<>();
-        String sql = "SELECT ExamID, ExamName, Description, ImagePath, CreatedDate, ModifiedDate FROM Exams";
+        String sql = "SELECT ExamID, ExamName, Description, ImagePath, ExportPath, CreatedDate, ModifiedDate FROM Exams";
 
         try (
                 var connection = DatabaseConnector.getConnection();
@@ -64,6 +64,7 @@ public class ExamDAO {
                 exam.setExamName(rs.getString("ExamName"));
                 exam.setDescription(rs.getString("Description"));
                 exam.setImagePath(rs.getString("ImagePath"));
+                exam.setExportPath(rs.getString("ExportPath"));
                 exam.setCreatedDate(rs.getTimestamp("CreatedDate"));
                 exam.setModifiedDate(rs.getTimestamp("ModifiedDate"));
                 exams.add(exam);
@@ -78,7 +79,7 @@ public class ExamDAO {
      * Cập nhật Exam (ExamName, Description, ImagePath) và ModifiedDate tự động
      */
     public boolean updateExam(Exam exam) {
-        String sql = "UPDATE Exams SET ExamName = ?, Description = ?, ImagePath = ?, ModifiedDate = GETDATE() WHERE ExamID = ?";
+        String sql = "UPDATE Exams SET ExamName = ?, Description = ?, ImagePath = ?, ModifiedDate = GETDATE(), ExportPath = ? WHERE ExamID = ?";
 
         try (
                 var connection = DatabaseConnector.getConnection();
@@ -87,7 +88,8 @@ public class ExamDAO {
             ps.setString(1, exam.getExamName());
             ps.setString(2, exam.getDescription());
             ps.setString(3, exam.getImagePath());
-            ps.setInt(4, exam.getExamID());
+            ps.setString(4, exam.getExportPath()); // exportPath là tham số thứ 4
+            ps.setInt   (5, exam.getExamID());     // examID là tham số thứ 5
 
             int affected = ps.executeUpdate();
             return affected > 0;
@@ -178,5 +180,21 @@ public class ExamDAO {
             e.printStackTrace();
         }
         return null;
+    }
+
+    /**
+     * Cập nhật trường ExportPath cho Exam.
+     */
+    public boolean updateExportPath(int examID, String exportPath) {
+        String sql = "UPDATE Exams SET ExportPath = ?, ModifiedDate = GETDATE() WHERE ExamID = ?";
+        try (Connection conn = DatabaseConnector.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, exportPath);
+            ps.setInt(2, examID);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 }

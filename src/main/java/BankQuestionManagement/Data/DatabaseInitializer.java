@@ -24,6 +24,7 @@ public class DatabaseInitializer {
                             ExamName NVARCHAR(255) NOT NULL,
                             Description NVARCHAR(MAX),
                             ImagePath NVARCHAR(500),
+                            ExportPath NVARCHAR(500) NULL,
                             CreatedDate DATETIME DEFAULT GETDATE(),
                             ModifiedDate DATETIME DEFAULT GETDATE()
                         );
@@ -98,8 +99,8 @@ public class DatabaseInitializer {
                                 CREATE TABLE GeneratedExams (
                                     GeneratedExamID INT PRIMARY KEY IDENTITY,
                                     ExamName NVARCHAR(255) NOT NULL,
-                                    ExportPath NVARCHAR(500) NOT NULL,
-                                    CreatedDate DATETIME DEFAULT GETDATE()
+                                    CreatedDate DATETIME DEFAULT GETDATE(),
+                                    ExportPath NVARCHAR(500) NULL,
                                 );
                             END
                         """
