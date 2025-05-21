@@ -50,7 +50,7 @@ public class DatabaseInitializer {
                         """
             );
 
-            //Tạo bảng Answers
+            // Tạo bảng Answers
             statement.executeUpdate(
                     """
                         IF NOT EXISTS (
@@ -65,7 +65,7 @@ public class DatabaseInitializer {
                                 IsCorrect BIT DEFAULT 0
                             );
                         END
-                          
+                           
                         """
             );
 
@@ -87,7 +87,7 @@ public class DatabaseInitializer {
                         """
             );
 
-            //Tạo bảng GeneratedExams
+            // Tạo bảng GeneratedExams
             statement.executeUpdate(
                     """
                             IF NOT EXISTS (
@@ -105,7 +105,7 @@ public class DatabaseInitializer {
                         """
             );
 
-            // Tạo bảng GeneratedExamQuestions
+            // Tạo bảng GeneratedExamQuestions với ON DELETE CASCADE cho cả hai FK
             statement.executeUpdate(
                     """
                             IF NOT EXISTS (
@@ -113,9 +113,9 @@ public class DatabaseInitializer {
                                WHERE object_id = OBJECT_ID(N'GeneratedExamQuestions') AND type = N'U'
                             )
                             BEGIN
-                                CREATE Table GeneratedExamQuestions (
+                                CREATE TABLE GeneratedExamQuestions (
                                     GeneratedExamID INT FOREIGN KEY REFERENCES GeneratedExams(GeneratedExamID) ON DELETE CASCADE,
-                                    QuestionID INT FOREIGN KEY REFERENCES Questions(QuestionID),
+                                    QuestionID INT FOREIGN KEY REFERENCES Questions(QuestionID) ON DELETE CASCADE,
                                     PRIMARY KEY (GeneratedExamID, QuestionID)
                                 );
                             END
@@ -130,4 +130,3 @@ public class DatabaseInitializer {
         }
     }
 }
-

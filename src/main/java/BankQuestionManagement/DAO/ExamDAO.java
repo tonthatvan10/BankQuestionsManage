@@ -3,7 +3,10 @@ package BankQuestionManagement.DAO;
 import BankQuestionManagement.Data.DatabaseConnector;
 import BankQuestionManagement.Model.Exam;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -28,7 +31,7 @@ public class ExamDAO {
                 throw new SQLException("Tạo Exam thất bại, không có dòng nào bị ảnh hưởng.");
             }
 
-            try (ResultSet rs = ps.getGeneratedKeys()) {
+            try (var rs = ps.getGeneratedKeys()) {
                 if (rs.next()) {
                     int newId = rs.getInt(1);
                     exam.setExamID(newId);
@@ -51,9 +54,9 @@ public class ExamDAO {
         String sql = "SELECT ExamID, ExamName, Description, ImagePath, CreatedDate, ModifiedDate FROM Exams";
 
         try (
-                Connection connection = DatabaseConnector.getConnection();
-                Statement stmt = connection.createStatement();
-                ResultSet rs = stmt.executeQuery(sql)
+                var connection = DatabaseConnector.getConnection();
+                var stmt = connection.createStatement();
+                var rs = stmt.executeQuery(sql)
         ) {
             while (rs.next()) {
                 Exam exam = new Exam();
@@ -78,8 +81,8 @@ public class ExamDAO {
         String sql = "UPDATE Exams SET ExamName = ?, Description = ?, ImagePath = ?, ModifiedDate = GETDATE() WHERE ExamID = ?";
 
         try (
-                Connection connection = DatabaseConnector.getConnection();
-                PreparedStatement ps = connection.prepareStatement(sql)
+                var connection = DatabaseConnector.getConnection();
+                var ps = connection.prepareStatement(sql)
         ) {
             ps.setString(1, exam.getExamName());
             ps.setString(2, exam.getDescription());
@@ -95,21 +98,55 @@ public class ExamDAO {
     }
 
     /**
-     * Xóa Exam theo examID
+     * Xóa Exam theo examID cùng tất cả Question và Answer (với cascade DB) liên quan.
      */
     public boolean deleteExam(int examID) {
-        String sql = "DELETE FROM Exams WHERE ExamID = ?";
+        String delQuestionsSql = "DELETE FROM Questions WHERE ExamID = ?";
+        String delExamSql = "DELETE FROM Exams WHERE ExamID = ?";
 
-        try (
-                Connection connection = DatabaseConnector.getConnection();
-                PreparedStatement ps = connection.prepareStatement(sql)
-        ) {
-            ps.setInt(1, examID);
-            int affected = ps.executeUpdate();
-            return affected > 0;
+        Connection conn = null;
+        try {
+            conn = DatabaseConnector.getConnection();
+            conn.setAutoCommit(false);
+
+            // Xóa câu hỏi; các Answers, AISuggestions liên quan tự động xóa theo ON DELETE CASCADE
+            try (PreparedStatement pstQ = conn.prepareStatement(delQuestionsSql)) {
+                pstQ.setInt(1, examID);
+                pstQ.executeUpdate();
+            }
+
+            // Xóa Exam
+            int affected;
+            try (PreparedStatement pstE = conn.prepareStatement(delExamSql)) {
+                pstE.setInt(1, examID);
+                affected = pstE.executeUpdate();
+            }
+
+            if (affected == 0) {
+                conn.rollback();
+                return false;
+            }
+            conn.commit();
+            return true;
         } catch (SQLException e) {
             e.printStackTrace();
+            if (conn != null) {
+                try {
+                    conn.rollback();
+                } catch (SQLException ex) {
+                    ex.printStackTrace();
+                }
+            }
             return false;
+        } finally {
+            if (conn != null) {
+                try {
+                    conn.setAutoCommit(true);
+                    conn.close();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
         }
     }
 
@@ -121,11 +158,11 @@ public class ExamDAO {
                 + "FROM Exams WHERE ExamID = ?";
 
         try (
-                Connection connection = DatabaseConnector.getConnection();
-                PreparedStatement ps = connection.prepareStatement(sql)
+                var connection = DatabaseConnector.getConnection();
+                var ps = connection.prepareStatement(sql)
         ) {
             ps.setInt(1, examID);
-            try (ResultSet rs = ps.executeQuery()) {
+            try (var rs = ps.executeQuery()) {
                 if (rs.next()) {
                     Exam exam = new Exam();
                     exam.setExamID(rs.getInt("ExamID"));

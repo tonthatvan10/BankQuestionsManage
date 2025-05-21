@@ -4,26 +4,25 @@ import BankQuestionManagement.DAO.*;
 import BankQuestionManagement.Model.*;
 
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
 
-/**
- * Dialog chung để sửa cả Exam và GeneratedExam.
- */
 public class EditExamDialog extends JDialog {
     private final ExamDAO examDAO = new ExamDAO();
     private final QuestionDAO questionDAO = new QuestionDAO();
     private final GeneratedExamDAO genExamDAO = new GeneratedExamDAO();
     private final GeneratedExamQuestionDAO genQDAO = new GeneratedExamQuestionDAO();
+    private final AnswerDAO answerDAO = new AnswerDAO();
 
     private Exam exam;
     private GeneratedExam genExam;
     private boolean isGenerated;
 
     private JTextField nameField;
-    private JTextArea descArea;
-    private JTextField imageField;
+    private JTextArea descArea;       // only for Exam
+    private JTextField imageField;    // for imagePath when Exam, or exportPath when GeneratedExam
     private DefaultTableModel questionModel;
     private JTable questionTable;
 
@@ -33,7 +32,8 @@ public class EditExamDialog extends JDialog {
         this.isGenerated = false;
         initComponents();
         loadDetails();
-        pack(); setLocationRelativeTo(owner);
+        pack();
+        setLocationRelativeTo(owner);
     }
 
     public EditExamDialog(Frame owner, GeneratedExam genExam) {
@@ -42,191 +42,305 @@ public class EditExamDialog extends JDialog {
         this.isGenerated = true;
         initComponents();
         loadDetails();
-        pack(); setLocationRelativeTo(owner);
+        pack();
+        setLocationRelativeTo(owner);
     }
 
     private void initComponents() {
-        // Common: Name
-        nameField = new JTextField(30);
-        JPanel topP = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        topP.add(new JLabel("Tên:"));
-        topP.add(nameField);
+        JPanel contentPane = new JPanel(new BorderLayout(10, 10));
+        contentPane.setBorder(new EmptyBorder(10, 10, 10, 10));
+        setContentPane(contentPane);
 
-        // Specific for Exam: description & image
-        JPanel infoP = new JPanel(new GridBagLayout());
+        // Header panel
+        JPanel header = new JPanel(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
-        c.insets = new Insets(5,5,5,5);
-        if (!isGenerated) {
-            descArea = new JTextArea(4, 20);
-            imageField = new JTextField(20);
-            JButton btnChooseImage = new JButton("Chọn ảnh");
-            btnChooseImage.addActionListener(e -> {
-                JFileChooser fc = new JFileChooser();
-                if(fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION)
-                    imageField.setText(fc.getSelectedFile().getAbsolutePath());
-            });
-            c.anchor = GridBagConstraints.WEST;
-            c.gridx=0; c.gridy=0; infoP.add(new JLabel("Mô tả:"), c);
-            c.gridx=1; infoP.add(new JScrollPane(descArea), c);
-            c.gridx=0; c.gridy=1; infoP.add(new JLabel("Ảnh:"), c);
-            c.gridx=1; infoP.add(imageField, c);
-            c.gridx=2; infoP.add(btnChooseImage, c);
-        }
+        c.insets = new Insets(5, 5, 5, 5);
+        c.anchor = GridBagConstraints.WEST;
 
-        // Table câu hỏi
-        if (isGenerated) {
-            questionModel = new DefaultTableModel(new String[]{"QID"}, 0) {
-                @Override public boolean isCellEditable(int r, int c) { return false; }
-            };
+        // Row 0: Label "Tên:" and nameField
+        c.gridx = 0;
+        c.gridy = 0;
+        header.add(new JLabel("Tên:"), c);
+        nameField = new JTextField(isGenerated ? genExam.getExamName() : exam.getExamName(), 25);
+        c.gridx = 1;
+        header.add(nameField, c);
+
+        if (!isGenerated) {
+            // Row 1: Label "Mô tả:" and descArea
+            c.gridx = 0;
+            c.gridy = 1;
+            header.add(new JLabel("Mô tả:"), c);
+            descArea = new JTextArea(exam.getDescription(), 3, 25);
+            descArea.setLineWrap(true);
+            descArea.setWrapStyleWord(true);
+            c.gridx = 1;
+            header.add(new JScrollPane(descArea), c);
+
+            // Row 2: Label "Ảnh:" and imageField + button
+            c.gridx = 0;
+            c.gridy = 2;
+            header.add(new JLabel("Ảnh:"), c);
+            imageField = new JTextField(exam.getImagePath(), 20);
+            JButton btnImg = new JButton("Chọn ảnh");
+            btnImg.addActionListener(e -> selectImage());
+            JPanel imgP = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+            imgP.add(imageField);
+            imgP.add(btnImg);
+            c.gridx = 1;
+            header.add(imgP, c);
         } else {
-            questionModel = new DefaultTableModel(new String[]{"ID","Nội dung","AudioPath"}, 0) {
-                @Override public boolean isCellEditable(int r, int c) { return c == 1; }
-            };
+            // Row 1 for GeneratedExam: Label "Đường dẫn xuất:" and exportField (reuse imageField)
+            c.gridx = 0;
+            c.gridy = 1;
+            header.add(new JLabel("Đường dẫn xuất:"), c);
+            imageField = new JTextField(genExam.getExportPath(), 25);
+            c.gridx = 1;
+            header.add(imageField, c);
         }
+
+        contentPane.add(header, BorderLayout.NORTH);
+
+        // Table setup
+        String[] cols = {"ID", "Nội dung", "AudioPath"};
+        questionModel = new DefaultTableModel(cols, 0) {
+            @Override
+            public boolean isCellEditable(int row, int col) {
+                return !isGenerated && col > 0;
+            }
+        };
         questionTable = new JTable(questionModel);
-        JScrollPane tableScroll = new JScrollPane(questionTable);
-        tableScroll.setPreferredSize(new Dimension(400, 200));
+        JScrollPane scroll = new JScrollPane(questionTable);
+        scroll.setPreferredSize(new Dimension(600, 300));
+        contentPane.add(scroll, BorderLayout.CENTER);
 
-        // Nút thêm/xóa câu
-        JPanel btnQPanel = new JPanel();
-        JButton btnAddQ = new JButton(isGenerated? "Thêm câu": "Thêm câu hỏi");
-        JButton btnDelQ = new JButton(isGenerated? "Xóa câu": "Xóa câu hỏi");
-        btnQPanel.add(btnAddQ);
-        btnQPanel.add(btnDelQ);
-        if (!isGenerated) {
-            JButton btnChooseAudio = new JButton("Chọn audio");
-            btnChooseAudio.addActionListener(e -> selectAudioForSelectedRow());
-            btnQPanel.add(btnChooseAudio);
+        // Controls panel (Add/Delete/Select Audio) - vertically stacked and larger buttons
+        JPanel ctrl = new JPanel();
+        ctrl.setLayout(new BoxLayout(ctrl, BoxLayout.Y_AXIS));
+        JButton btnAdd = new JButton(isGenerated ? "Thêm câu" : "Thêm câu hỏi");
+        JButton btnDel = new JButton(isGenerated ? "Xóa câu" : "Xóa câu hỏi");
+        JButton btnAudio = new JButton("Chọn audio");
+
+        Dimension btnSize = new Dimension(140, 40);
+        Font font = new Font("Arial", Font.PLAIN, 14);
+        for (JButton btn : new JButton[]{btnAdd, btnDel, btnAudio}) {
+            btn.setMaximumSize(btnSize);
+            btn.setPreferredSize(btnSize);
+            btn.setFont(font);
+            btn.setAlignmentX(Component.CENTER_ALIGNMENT);
+            ctrl.add(btn);
+            ctrl.add(Box.createVerticalStrut(10)); // spacing
         }
-        btnAddQ.addActionListener(e -> addQuestion());
-        btnDelQ.addActionListener(e -> deleteQuestion());
 
-        // Buttons Save/Cancel
+        btnAdd.addActionListener(e -> addQuestion());
+        btnDel.addActionListener(e -> deleteQuestion());
+        btnAudio.addActionListener(e -> selectAudioForRow());
+        contentPane.add(ctrl, BorderLayout.EAST);
+
+        // Footer panel (Save/Cancel)
+        JPanel foot = new JPanel(new FlowLayout(FlowLayout.CENTER));
         JButton btnSave = new JButton("Lưu");
         JButton btnCancel = new JButton("Hủy");
+        foot.add(btnSave);
+        foot.add(btnCancel);
         btnSave.addActionListener(e -> onSave());
         btnCancel.addActionListener(e -> dispose());
-        JPanel btnP = new JPanel(); btnP.add(btnSave); btnP.add(btnCancel);
-
-        // Layout tổng
-        JPanel north = new JPanel(new BorderLayout());
-        north.add(topP, BorderLayout.NORTH);
-        if (!isGenerated) north.add(infoP, BorderLayout.CENTER);
-        setLayout(new BorderLayout(5,5));
-        add(north, BorderLayout.NORTH);
-        add(tableScroll, BorderLayout.CENTER);
-        add(btnQPanel, BorderLayout.EAST);
-        add(btnP, BorderLayout.SOUTH);
+        contentPane.add(foot, BorderLayout.PAGE_END);
     }
 
+
     private void loadDetails() {
+        questionModel.setRowCount(0);
+
         if (isGenerated) {
+            // Set exportPath into imageField
             nameField.setText(genExam.getExamName());
-            questionModel.setRowCount(0);
-            genQDAO.getByGeneratedExamID(genExam.getGeneratedExamID()).forEach(geq ->
-                    questionModel.addRow(new Object[]{ geq.getQuestionID() })
-            );
+            imageField.setText(genExam.getExportPath());
+
+            // Load questions via GeneratedExamQuestion
+            List<GeneratedExamQuestion> lst = genQDAO.getByGeneratedExamID(genExam.getGeneratedExamID());
+            for (GeneratedExamQuestion geq : lst) {
+                Question q = questionDAO.getQuestionByID(geq.getQuestionID());
+                questionModel.addRow(new Object[]{q.getQuestionID(), q.getContent(), q.getAudioPath()});
+            }
         } else {
+            // Normal Exam: load description and image
             nameField.setText(exam.getExamName());
             descArea.setText(exam.getDescription());
             imageField.setText(exam.getImagePath());
-            questionModel.setRowCount(0);
-            questionDAO.getQuestionsByExamID(exam.getExamID()).forEach(q ->
-                    questionModel.addRow(new Object[]{ q.getQuestionID(), q.getContent(), q.getAudioPath() })
-            );
+
+            // Load questions by examID
+            List<Question> lst = questionDAO.getQuestionsByExamID(exam.getExamID());
+            for (Question q : lst) {
+                questionModel.addRow(new Object[]{q.getQuestionID(), q.getContent(), q.getAudioPath()});
+            }
         }
     }
 
     private void addQuestion() {
-        if (isGenerated) {
-            String input = JOptionPane.showInputDialog(this, "Nhập QID muốn thêm:");
-            try {
-                int qid = Integer.parseInt(input.trim());
-                genQDAO.addGeneratedExamQuestion(genExam.getGeneratedExamID(), qid);
-                questionModel.addRow(new Object[]{ qid });
-            } catch(Exception e){ /* bỏ qua */ }
-        } else {
-            // tương tự như trước, form nhập nội dung & audio
-            // tạm gọi lại code cũ:
-            JTextArea txtContent = new JTextArea(3,20);
-            JTextField txtAudio = new JTextField(20);
-            JButton btnPick = new JButton("Chọn file");
-            btnPick.addActionListener(ev -> {
-                JFileChooser fc = new JFileChooser();
-                if(fc.showOpenDialog(this)==JFileChooser.APPROVE_OPTION)
-                    txtAudio.setText(fc.getSelectedFile().getAbsolutePath());
-            });
-            JPanel pnl = new JPanel(new GridBagLayout());
-            GridBagConstraints gc = new GridBagConstraints();
-            gc.insets = new Insets(5,5,5,5); gc.anchor = GridBagConstraints.WEST;
-            gc.gridx=0; gc.gridy=0; pnl.add(new JLabel("Nội dung:"), gc);
-            gc.gridx=1; pnl.add(new JScrollPane(txtContent), gc);
-            gc.gridy=1; gc.gridx=0; pnl.add(new JLabel("AudioPath:"), gc);
-            gc.gridx=1; pnl.add(txtAudio, gc);
-            gc.gridx=2; pnl.add(btnPick, gc);
-            int res = JOptionPane.showConfirmDialog(this, pnl, "Thêm câu hỏi", JOptionPane.OK_CANCEL_OPTION);
-            if(res == JOptionPane.OK_OPTION) {
-                String content = txtContent.getText().trim();
-                String audio = txtAudio.getText().trim();
-                if(!content.isEmpty()) {
-                    Question qNew = new Question(exam.getExamID(), content, audio);
-                    int newId = questionDAO.addQuestion(qNew);
-                    questionModel.addRow(new Object[]{ newId, content, audio });
+        JTextArea txtQ = new JTextArea(3, 20);
+        JTextField[] txtA = new JTextField[4];
+        JRadioButton[] rb = new JRadioButton[4];
+        ButtonGroup bg = new ButtonGroup();
+        JTextField txtAudio = new JTextField(20);
+        JButton pickAudio = new JButton("Chọn audio");
+        pickAudio.addActionListener(e -> {
+            JFileChooser fc = new JFileChooser();
+            if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+                txtAudio.setText(fc.getSelectedFile().getAbsolutePath());
+            }
+        });
+
+        JPanel pnl = new JPanel(new GridBagLayout());
+        GridBagConstraints c = new GridBagConstraints();
+        c.insets = new Insets(5, 5, 5, 5);
+        c.anchor = GridBagConstraints.WEST;
+        c.gridx = 0;
+        c.gridy = 0;
+        pnl.add(new JLabel("Nội dung câu hỏi:"), c);
+        c.gridx = 1;
+        pnl.add(new JScrollPane(txtQ), c);
+
+        for (int i = 0; i < 4; i++) {
+            txtA[i] = new JTextField(20);
+            rb[i] = new JRadioButton("Đáp án đúng");
+            bg.add(rb[i]);
+            c.gridy = i + 1;
+            c.gridx = 0;
+            pnl.add(new JLabel("Đáp án " + (i + 1) + ":"), c);
+            c.gridx = 1;
+            pnl.add(txtA[i], c);
+            c.gridx = 2;
+            pnl.add(rb[i], c);
+        }
+
+        c.gridy = 5;
+        c.gridx = 0;
+        pnl.add(new JLabel("AudioPath:"), c);
+        c.gridx = 1;
+        pnl.add(txtAudio, c);
+        c.gridx = 2;
+        pnl.add(pickAudio, c);
+
+        int res = JOptionPane.showConfirmDialog(this, pnl, "Thêm câu hỏi", JOptionPane.OK_CANCEL_OPTION);
+        if (res == JOptionPane.OK_OPTION) {
+            String content = txtQ.getText().trim();
+            String audio = txtAudio.getText().trim();
+            if (content.isEmpty()) {
+                JOptionPane.showMessageDialog(this,
+                        "Nội dung câu hỏi không được để trống!",
+                        "Cảnh báo",
+                        JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            int parentExamID = isGenerated ? genExam.getGeneratedExamID() : exam.getExamID();
+            Question newQ = new Question(parentExamID, content, audio);
+            int newId = questionDAO.addQuestion(newQ);
+            for (int i = 0; i < 4; i++) {
+                String at = txtA[i].getText().trim();
+                if (!at.isEmpty()) {
+                    Answer a = new Answer(newId, at, rb[i].isSelected());
+                    answerDAO.addAnswer(a);
                 }
             }
+            // If GeneratedExam, link to GeneratedExamQuestions
+            if (isGenerated) {
+                genQDAO.addGeneratedExamQuestion(genExam.getGeneratedExamID(), newId);
+            }
+            questionModel.addRow(new Object[]{newId, content, audio});
+            JOptionPane.showMessageDialog(this,
+                    "Thêm câu hỏi thành công!",
+                    "Thông báo",
+                    JOptionPane.INFORMATION_MESSAGE);
         }
     }
 
     private void deleteQuestion() {
         int r = questionTable.getSelectedRow();
-        if (r < 0) return;
-        if (isGenerated) {
-            int qid = (Integer) questionModel.getValueAt(r, 0);
-            genQDAO.deleteGeneratedExamQuestion(genExam.getGeneratedExamID(), qid);
+        if (r < 0) {
+            JOptionPane.showMessageDialog(this,
+                    "Chọn câu hỏi để xóa!",
+                    "Cảnh báo",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+        int confirm = JOptionPane.showConfirmDialog(this,
+                "Bạn có chắc chắn muốn xóa câu hỏi này?",
+                "Xác nhận",
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.WARNING_MESSAGE);
+        if (confirm == JOptionPane.OK_OPTION) {
+            int qid = (int) questionModel.getValueAt(r, 0);
+            if (isGenerated) {
+                // Remove link, then optionally remove question itself:
+                genQDAO.deleteGeneratedExamQuestion(genExam.getGeneratedExamID(), qid);
+                // If you want to delete the question record too, uncomment:
+                // questionDAO.deleteQuestion(qid);
+            } else {
+                questionDAO.deleteQuestion(qid);
+            }
             questionModel.removeRow(r);
-        } else {
-            int qid = (Integer) questionModel.getValueAt(r, 0);
-            questionDAO.deleteQuestion(qid);
-            questionModel.removeRow(r);
+            JOptionPane.showMessageDialog(this,
+                    "Xóa câu hỏi thành công!",
+                    "Thông báo",
+                    JOptionPane.INFORMATION_MESSAGE);
         }
     }
 
-    private void selectAudioForSelectedRow() {
+    private void selectAudioForRow() {
         int r = questionTable.getSelectedRow();
-        if(r < 0) return;
+        if (r < 0) {
+            JOptionPane.showMessageDialog(this,
+                    "Chọn câu hỏi để thêm audio!",
+                    "Cảnh báo",
+                    JOptionPane.WARNING_MESSAGE);
+            return;
+        }
         JFileChooser fc = new JFileChooser();
-        if(fc.showOpenDialog(this)==JFileChooser.APPROVE_OPTION) {
+        if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             String path = fc.getSelectedFile().getAbsolutePath();
             questionModel.setValueAt(path, r, 2);
-            int qid = (Integer) questionModel.getValueAt(r,0);
+            int qid = (int) questionModel.getValueAt(r, 0);
             Question q = questionDAO.getQuestionByID(qid);
             q.setAudioPath(path);
             questionDAO.updateQuestion(q);
+            JOptionPane.showMessageDialog(this,
+                    "Chọn audio thành công!",
+                    "Thông báo",
+                    JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+
+    private void selectImage() {
+        JFileChooser fc = new JFileChooser();
+        if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+            imageField.setText(fc.getSelectedFile().getAbsolutePath());
         }
     }
 
     private void onSave() {
         if (isGenerated) {
             genExam.setExamName(nameField.getText().trim());
-            if (!genExamDAO.updateGeneratedExam(genExam)) {
-                JOptionPane.showMessageDialog(this, "Cập nhật thất bại!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
+            genExam.setExportPath(imageField.getText().trim());
+            genExamDAO.updateGeneratedExam(genExam);
         } else {
             exam.setExamName(nameField.getText().trim());
             exam.setDescription(descArea.getText().trim());
             exam.setImagePath(imageField.getText().trim());
             examDAO.updateExam(exam);
-            // cập nhật nội dung và audio các câu
-            for (int i = 0; i < questionModel.getRowCount(); i++) {
-                int qid = (Integer) questionModel.getValueAt(i,0);
-                Question q = questionDAO.getQuestionByID(qid);
-                q.setContent((String) questionModel.getValueAt(i,1));
-                q.setAudioPath((String) questionModel.getValueAt(i,2));
+        }
+        // Update modified questions if content or audio changed
+        for (int i = 0; i < questionModel.getRowCount(); i++) {
+            int qid = (int) questionModel.getValueAt(i, 0);
+            String content = (String) questionModel.getValueAt(i, 1);
+            String audio = (String) questionModel.getValueAt(i, 2);
+            Question q = questionDAO.getQuestionByID(qid);
+            if (!q.getContent().equals(content) || !q.getAudioPath().equals(audio)) {
+                q.setContent(content);
+                q.setAudioPath(audio);
                 questionDAO.updateQuestion(q);
             }
         }
-        JOptionPane.showMessageDialog(this, "Cập nhật thành công!", "OK", JOptionPane.INFORMATION_MESSAGE);
+        JOptionPane.showMessageDialog(this, "Đã lưu thành công.");
         dispose();
     }
 }

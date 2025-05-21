@@ -66,7 +66,6 @@ public class AnswerDAO {
 
     /**
      * Xóa Answer theo answerID.
-     * (Không có ON DELETE CASCADE ngược lại vì Answers là bảng con, ta chỉ xóa Answer một cách trực tiếp.)
      */
     public boolean deleteAnswer(int answerID) {
         String sql = "DELETE FROM Answers WHERE AnswerID = ?";
@@ -75,6 +74,24 @@ public class AnswerDAO {
                 PreparedStatement pst = conn.prepareStatement(sql)
         ) {
             pst.setInt(1, answerID);
+            int affected = pst.executeUpdate();
+            return affected > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Xóa tất cả Answers thuộc một QuestionID.
+     */
+    public boolean deleteByQuestionID(int questionID) {
+        String sql = "DELETE FROM Answers WHERE QuestionID = ?";
+        try (
+                Connection conn = DatabaseConnector.getConnection();
+                PreparedStatement pst = conn.prepareStatement(sql)
+        ) {
+            pst.setInt(1, questionID);
             int affected = pst.executeUpdate();
             return affected > 0;
         } catch (SQLException e) {

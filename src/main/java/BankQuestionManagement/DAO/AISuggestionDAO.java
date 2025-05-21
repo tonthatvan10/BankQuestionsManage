@@ -161,4 +161,18 @@ public class AISuggestionDAO {
         }
         return list;
     }
+
+    // Xóa tất cả AISuggestion theo questionID
+    public boolean deleteByQuestionID(int questionID) {
+        String sql = "DELETE FROM AI_Suggestions WHERE QuestionID = ?";
+        try (Connection conn = DatabaseConnector.getConnection();
+             PreparedStatement pst = conn.prepareStatement(sql)) {
+            pst.setInt(1, questionID);
+            pst.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
 }

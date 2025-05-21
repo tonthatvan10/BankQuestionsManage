@@ -48,6 +48,24 @@ public class GeneratedExamQuestionDAO {
     }
 
     /**
+     * Xóa tất cả GeneratedExamQuestion liên quan đến questionID
+     */
+    public boolean deleteByQuestionID(int questionID) {
+        String sql = "DELETE FROM GeneratedExamQuestions WHERE QuestionID = ?";
+        try (
+                Connection conn = DatabaseConnector.getConnection();
+                PreparedStatement pst = conn.prepareStatement(sql)
+        ) {
+            pst.setInt(1, questionID);
+            pst.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
      * Lấy danh sách GeneratedExamQuestion theo generatedExamID
      */
     public List<GeneratedExamQuestion> getByGeneratedExamID(int generatedExamID) {
